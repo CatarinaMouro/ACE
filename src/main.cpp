@@ -1,8 +1,8 @@
 #include <Arduino.h>
 
 //creates pwm instance
-#define SONAR_FRONT_PIN_trig 2
-#define SONAR_FRONT_PIN_echo 3
+#define SONAR_FRONT_PIN_trig 8
+#define SONAR_FRONT_PIN_echo 9
 #define SONAR_RIGHT_PIN_trig 4
 #define SONAR_RIGHT_PIN_echo 5 
 #define SONAR_LEFT_PIN_trig 6
@@ -108,7 +108,7 @@ void Sonar_receiveecho_front(){
     fsm_triggerSonar_Front.new_state = 2;
     set_state(fsm_triggerSonar_Front, fsm_triggerSonar_Front.new_state);
   } 
-  else if (sonar_echo_f==HIGH && fsm_triggerSonar_Front.state==2){
+  else if (sonar_echo_f==LOW && fsm_triggerSonar_Front.state==2){
     duration_sound_front=micros()-Echotime_init_front;
     distance_cm_front=microsecondsToCentimeters(duration_sound_front);
     fsm_triggerSonar_Front.new_state = 0;
@@ -185,7 +185,7 @@ void loop()
     fsm_triggerSonar_Right.tis = cur_time - fsm_triggerSonar_Right.tes;
     fsm_triggerSonar_Left.tis = cur_time - fsm_triggerSonar_Left.tes;
 
-    Serial.print(" cont: ");
+    /*Serial.print(" cont: ");
     Serial.print(cont_f);
     Serial.print(cont_r);
     Serial.print(cont_l);
@@ -193,9 +193,9 @@ void loop()
     Serial.print(fsm_triggerSonar_Front.state);
     Serial.print(fsm_triggerSonar_Right.state);
     Serial.println(fsm_triggerSonar_Left.state);
-    
+    */
 
-    sleep_ms(1000);
+    //sleep_ms(1000);
 
 
     if (fsm_triggerSonar_Front.state == 0
