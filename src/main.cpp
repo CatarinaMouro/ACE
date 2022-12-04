@@ -1,13 +1,53 @@
 #include <Arduino.h>
 
+
+
 //creates pwm instance
-#define SONAR_FRONT_PIN_trig 8
-#define SONAR_FRONT_PIN_echo 9
 #define SONAR_RIGHT_PIN_trig 4
 #define SONAR_RIGHT_PIN_echo 5 
 #define SONAR_LEFT_PIN_trig 6
 #define SONAR_LEFT_PIN_echo 7 
+#define SONAR_FRONT_PIN_trig 8
+#define SONAR_FRONT_PIN_echo 9
+#define PWM_MOTOR_RIGHT 10
+#define IN1_MOTOR_RIGHT 11
+#define IN2_MOTOR_RIGHT 12
+#define PWM_MOTOR_LEFT 13
+#define IN1_MOTOR_LEFT 14
+#define IN2_MOTOR_LEFT 15
 
+
+                           
+void setup() 
+{ 
+  pinMode(PWM_MOTOR_RIGHT, OUTPUT);   
+  pinMode(IN1_MOTOR_RIGHT, OUTPUT); 
+  pinMode(IN2_MOTOR_RIGHT, OUTPUT);   
+  pinMode(PWM_MOTOR_LEFT, OUTPUT); 
+  pinMode(IN1_MOTOR_LEFT, OUTPUT);   
+  pinMode(IN2_MOTOR_LEFT, OUTPUT); 
+} 
+void loop() 
+{ 
+  int value;
+  for(value = 0 ; value <= 255; value+=5) 
+  { 
+    digitalWrite(IN1_MOTOR_RIGHT, HIGH);   
+    digitalWrite(IN2_MOTOR_RIGHT, LOW); 
+    digitalWrite(IN1_MOTOR_LEFT, HIGH);   
+    digitalWrite(IN2_MOTOR_LEFT, LOW);   
+    analogWrite(PWM_MOTOR_RIGHT, value);   //PWM Speed Control
+    analogWrite(PWM_MOTOR_LEFT, value);   //PWM Speed Control
+    delay(30); 
+  }
+}
+
+
+
+
+
+
+/*
 typedef struct {
   int state, new_state;
   unsigned long tes, tis;
@@ -193,7 +233,7 @@ void loop()
     Serial.print(fsm_triggerSonar_Front.state);
     Serial.print(fsm_triggerSonar_Right.state);
     Serial.println(fsm_triggerSonar_Left.state);
-    */
+    * /
 
     //sleep_ms(1000);
 
@@ -237,3 +277,4 @@ void loop()
   }
 }
 
+*/
