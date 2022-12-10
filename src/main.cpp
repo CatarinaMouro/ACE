@@ -1,14 +1,15 @@
 #include <Arduino.h>
-
+//#include <RP2040_PWM.h>
 
 
 //creates pwm instance
-#define SONAR_RIGHT_PIN_trig 4
-#define SONAR_RIGHT_PIN_echo 5 
-#define SONAR_LEFT_PIN_trig 6
-#define SONAR_LEFT_PIN_echo 7 
+#define SONAR_RIGHT_PIN_trig 0
+#define SONAR_RIGHT_PIN_echo 1
+#define SONAR_LEFT_PIN_trig 7
+#define SONAR_LEFT_PIN_echo 6
 #define SONAR_FRONT_PIN_trig 8
 #define SONAR_FRONT_PIN_echo 9
+
 #define PWM_MOTOR_RIGHT 10
 #define IN1_MOTOR_RIGHT 11
 #define IN2_MOTOR_RIGHT 12
@@ -16,7 +17,7 @@
 #define IN1_MOTOR_LEFT 14
 #define IN2_MOTOR_LEFT 15
 
-
+/*
                            
 void setup() 
 { 
@@ -40,14 +41,15 @@ void loop()
     analogWrite(PWM_MOTOR_LEFT, value);   //PWM Speed Control
     delay(30); 
   }
+  if (value >=255) value=0;
 }
 
 
 
 
+*/
 
 
-/*
 typedef struct {
   int state, new_state;
   unsigned long tes, tis;
@@ -233,7 +235,7 @@ void loop()
     Serial.print(fsm_triggerSonar_Front.state);
     Serial.print(fsm_triggerSonar_Right.state);
     Serial.println(fsm_triggerSonar_Left.state);
-    * /
+    */
 
     //sleep_ms(1000);
 
@@ -277,4 +279,3 @@ void loop()
   }
 }
 
-*/

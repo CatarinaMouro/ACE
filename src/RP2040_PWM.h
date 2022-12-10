@@ -31,6 +31,8 @@
 #ifndef RP2040_PWM_H
 #define RP2040_PWM_H
 
+#include "pico.h"
+
 #if ( defined(ARDUINO_NANO_RP2040_CONNECT) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || \
       defined(ARDUINO_GENERIC_RP2040) ) && defined(ARDUINO_ARCH_MBED)
   #if defined(USING_MBED_RP2040_PWM)
