@@ -10,10 +10,10 @@
 #define SONAR_FRONT_PIN_trig 8
 #define SONAR_FRONT_PIN_echo 9
 
-#define ENCODER_A_RIGHT 8
-#define ENCODER_B_RIGHT 8
-#define ENCODER_A_LEFT 8
-#define ENCODER_B_LEFT 8
+#define ENCODER_A_RIGHT 21
+#define ENCODER_B_RIGHT 20
+#define ENCODER_A_LEFT 19
+#define ENCODER_B_LEFT 18
 #define PWM_MOTOR_RIGHT 15
 #define IN1_MOTOR_RIGHT 13
 #define IN2_MOTOR_RIGHT 14
@@ -171,20 +171,8 @@ void wheelSpeed_R()
   int Lstate = digitalRead(ENCODER_B_RIGHT);
   int increment = 0;
   if(Lstate==HIGH)
-  {
-    increment = 1;
-
-    /*int val = digitalRead(ENCODER_B_RIGHT);
-    if(val == LOW && Direction)
-    {
-      Direction = false; //Reverse
-    }
-    else if(val == HIGH && !Direction)
-    {
-      Direction = true;  //Forward
-    }*/
-  }
-  else increment = -1;
+    increment = -1;
+  else increment = 1;
 
   long currT = micros();
   float deltaT = ((float) (currT - prevT_R))/1.0e6;
@@ -197,19 +185,7 @@ void wheelSpeed_L()
   int Lstate = digitalRead(ENCODER_B_LEFT);
   int increment = 0;
   if(Lstate==HIGH)
-  {
     increment = 1;
-
-    /*int val = digitalRead(ENCODER_B_LEFT);
-    if(val == LOW && Direction)
-    {
-      Direction = false; //Reverse
-    }
-    else if(val == HIGH && !Direction)
-    {
-      Direction = true;  //Forward
-    }*/
-  }
   else increment = -1;
 
   long currT = micros();
@@ -220,30 +196,27 @@ void wheelSpeed_L()
 
 
 void move(int dir,int value_r,int value_l){
-  Serial.print("entrei move: ");
-  Serial.print(dir);
-  Serial.print(" ");
-  Serial.print(value_r);
-  Serial.print(" ");
-  Serial.println(value_l);
   if (dir){
     digitalWrite(IN1_MOTOR_RIGHT, HIGH);   
     digitalWrite(IN2_MOTOR_RIGHT, LOW); 
-    digitalWrite(IN1_MOTOR_LEFT, HIGH);   
-    digitalWrite(IN2_MOTOR_LEFT, LOW);   
+    digitalWrite(IN1_MOTOR_LEFT, LOW);   
+    digitalWrite(IN2_MOTOR_LEFT, HIGH);   
   }
   else{
     digitalWrite(IN1_MOTOR_RIGHT, LOW);   
     digitalWrite(IN2_MOTOR_RIGHT, HIGH); 
-    digitalWrite(IN1_MOTOR_LEFT, LOW);   
-    digitalWrite(IN2_MOTOR_LEFT, HIGH);   
+    digitalWrite(IN1_MOTOR_LEFT, HIGH);   
+    digitalWrite(IN2_MOTOR_LEFT, LOW);   
   }
   analogWrite(PWM_MOTOR_RIGHT, value_r);   //PWM Speed Control
   analogWrite(PWM_MOTOR_LEFT, value_l);    //PWM Speed Control
 }
 
+void move_stop(){
+  move(1, 0, 0);
+}
 void move_forward(){
-  move(1, 255, 255);
+  move(1, 153, 153);
 }
 void turn_right(){
   move(1, 0, 128);
@@ -295,17 +268,30 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_RIGHT_PIN_echo), Sonar_receiveecho_right, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_LEFT_PIN_echo), Sonar_receiveecho_left, CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(ENCODER_A_RIGHT), wheelSpeed_R, RISING);
-  //attachInterrupt(digitalPinToInterrupt(ENCODER_A_LEFT), wheelSpeed_L, RISING);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A_RIGHT), wheelSpeed_R, RISING);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A_LEFT), wheelSpeed_L, RISING);
 
+}
+
+
+void loop() 
+{ 
+  int value;
+  for(value = 0 ; value <= 135; value+=5) 
+  { 
+    move(1,value,0);
+    Serial.print("vel_R: ");
+    Serial.print(String(velocity_R));
+    Serial.print("vel_L: ");
+    Serial.println(String(velocity_L));
+    delay(1000); 
+  }
 }
 
 
 
 
-
 /*
-
 void loop() 
 {
   unsigned long now = millis();
@@ -321,15 +307,8 @@ void loop()
     fsm_front.tis = cur_time - fsm_front.tes;
     fsm_wall_right.tis = cur_time - fsm_wall_right.tes;
 
-    digitalWrite(IN1_MOTOR_RIGHT, HIGH);   
-    digitalWrite(IN2_MOTOR_RIGHT, LOW); 
-    digitalWrite(IN1_MOTOR_LEFT, HIGH);   
-    digitalWrite(IN2_MOTOR_LEFT, LOW);   
-    analogWrite(PWM_MOTOR_RIGHT, 255);   //PWM Speed Control
-    analogWrite(PWM_MOTOR_LEFT, 255);    //PWM Speed Control
 
-
-    /*
+    
     //-----------------SENSORES-------------------//
 
     fsm_triggerSonar_Front.tis = cur_time - fsm_triggerSonar_Front.tes;
@@ -377,34 +356,47 @@ void loop()
 
     
 
-
+    /*
      //-----------------MOTORES-------------------//
-    
-    if (fsm_wall_right.state == 0 && fsm_wall_right.tis>1000){
-      fsm_wall_right.new_state=1;
+    if (fsm_wall_right.state != 0 && (distance_cm_front<15
+                                  || distance_cm_right>5
+                                  || distance_cm_left>5)){
+      fsm_wall_right.new_state=0;
     }
-    else if (fsm_wall_right.state == 1 && fsm_wall_right.tis>5000){
+    else if (fsm_wall_right.state != 2 && (distance_cm_front<20
+                                       && distance_cm_right<distance_cm_left)){
       fsm_wall_right.new_state=2;
     }
-    else if (fsm_wall_right.state == 2 && fsm_wall_right.tis>500){
+    else if (fsm_wall_right.state == 0 && fsm_wall_right.tis > 5000
+                && distance_cm_front>20 && distance_cm_right>15
+                && distance_cm_left>15){
+      fsm_wall_right.new_state=1;
+    }
+    else if (fsm_wall_right.state == 1 && (distance_cm_front<20 && distance_cm_right>distance_cm_left)
+                                       || (distance_cm_front>40 && distance_cm_right>60)){
       fsm_wall_right.new_state=3;
+    }
+    else if (fsm_wall_right.state == 2 && (distance_cm_front>40 && distance_cm_right>60)){
+      fsm_wall_right.new_state=1;
     }
     else if (fsm_wall_right.state == 3 && fsm_wall_right.tis>500){
       fsm_wall_right.new_state=1;
     }
     set_state(fsm_wall_right, fsm_wall_right.new_state);
 
-    if(fsm_wall_right.state==1) move_forward();
+    if (fsm_wall_right.state==0) move_stop();
+    else if(fsm_wall_right.state==1) move_forward();
     else if(fsm_wall_right.state==2) turn_left();
     else if(fsm_wall_right.state==3) turn_right();
 
     
     Serial.print("fsm_wall_right: ");
     Serial.println(fsm_wall_right.state);
+    
     * /
-
 
   }
 }
+
 
 */
