@@ -1,6 +1,4 @@
 #include <Arduino.h>
-//#include <RP2040_PWM.h>
-
 
 
 #define SONAR_RIGHT_PIN_trig 0
@@ -21,10 +19,11 @@
 #define IN1_MOTOR_LEFT 12
 #define IN2_MOTOR_LEFT 11
 
+#define DESIRED_DIST 20
+#define VAL_MAX 5
 
 unsigned long interval, last_cycle;
 unsigned long loop_micros;
-boolean follow; // 0->left & 1->right;
 
 
 
@@ -64,9 +63,9 @@ volatile int cont_f, cont_r, cont_l;
 // GET DISTANCES
 // Max Range: 4m
 // Min Range: 2cm
-long duration_sound_front, distance_cm_front;
-long duration_sound_right, distance_cm_right;
-long duration_sound_left, distance_cm_left;
+long duration_sound_front, distance_cm_front, prev_dist_front;
+long duration_sound_right, distance_cm_right, prev_dist_right;
+long duration_sound_left, distance_cm_left, prev_dist_left;
 
 
 
@@ -92,6 +91,7 @@ void Sonar_receiveecho_front(){
   } 
   else if (sonar_echo_f==LOW && fsm_triggerSonar_Front.state==2){
     duration_sound_front=micros()-Echotime_init_front;
+    prev_dist_front = distance_cm_front;
     distance_cm_front=microsecondsToCentimeters(duration_sound_front);
     fsm_triggerSonar_Front.new_state = 0;
     set_state(fsm_triggerSonar_Front, fsm_triggerSonar_Front.new_state);
@@ -110,6 +110,7 @@ void Sonar_receiveecho_right(){
   }
   else if (sonar_echo_r==LOW && fsm_triggerSonar_Right.state==2){
     duration_sound_right=micros()-Echotime_init_right;
+    prev_dist_right = distance_cm_right;
     distance_cm_right=microsecondsToCentimeters(duration_sound_right);
     fsm_triggerSonar_Right.new_state = 0;
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
@@ -129,6 +130,7 @@ void Sonar_receiveecho_left(){
   }
   else if (sonar_echo_l==LOW && fsm_triggerSonar_Left.state==2){
     duration_sound_left=micros()-Echotime_init_left;
+    prev_dist_left = distance_cm_left;
     distance_cm_left=microsecondsToCentimeters(duration_sound_left);
     fsm_triggerSonar_Left.new_state = 0;
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
@@ -195,35 +197,83 @@ void wheelSpeed_L()
 }
 
 
-void move(int dir,int value_r,int value_l){
-  if (dir){
-    digitalWrite(IN1_MOTOR_RIGHT, HIGH);   
-    digitalWrite(IN2_MOTOR_RIGHT, LOW); 
-    digitalWrite(IN1_MOTOR_LEFT, LOW);   
-    digitalWrite(IN2_MOTOR_LEFT, HIGH);   
+void set_motor(int value_r,int value_l){
+  digitalWrite(IN1_MOTOR_RIGHT,  (value_r>0));   
+  digitalWrite(IN2_MOTOR_RIGHT, !(value_r>0));  
+  digitalWrite(IN1_MOTOR_LEFT,  !(value_l>0));   
+  digitalWrite(IN2_MOTOR_LEFT,   (value_l>0));  
+  
+  analogWrite(PWM_MOTOR_RIGHT, abs(value_r));    //PWM Speed Control
+  analogWrite(PWM_MOTOR_LEFT,  abs(value_l));    //PWM Speed Control
+}
+
+int move(int rotation_speed, int linear_speed){
+  if(abs(rotation_speed)>20){
+    if(rotation_speed<0) rotation_speed=-20;
+    else rotation_speed=20;
   }
-  else{
-    digitalWrite(IN1_MOTOR_RIGHT, LOW);   
-    digitalWrite(IN2_MOTOR_RIGHT, HIGH); 
-    digitalWrite(IN1_MOTOR_LEFT, HIGH);   
-    digitalWrite(IN2_MOTOR_LEFT, LOW);   
-  }
-  analogWrite(PWM_MOTOR_RIGHT, value_r);   //PWM Speed Control
-  analogWrite(PWM_MOTOR_LEFT, value_l);    //PWM Speed Control
+  int speed_r = linear_speed + rotation_speed;
+  int speed_l = linear_speed - rotation_speed;
+  int res=0;
+
+  if(speed_r>255) {speed_r=255; res=-1;}
+  if(speed_l>255) {speed_l=255; res=-1;}
+
+  set_motor(speed_r,speed_l);
+  return res;
 }
 
 void move_stop(){
-  move(1, 0, 0);
+  set_motor(0, 0);
 }
-void move_forward(){
-  move(1, 153, 153);
+
+
+
+/*---------------------------------------------------------------/
+/-------------------------CONTROLLERS----------------------------/
+/---------------------------------------------------------------*/
+
+int follow_right(){
+  float Ke=1, Ki=0.003;
+  int error_right = distance_cm_right - DESIRED_DIST;
+  int integrate_right = integrate_right + error_right;
+  if(integrate_right>VAL_MAX) integrate_right=VAL_MAX;
+  if(integrate_right<-VAL_MAX) integrate_right=-VAL_MAX;
+  
+  int rotation = Ke*error_right; //+Ki*integrate_right;
+
+ 
+  Serial.print("\nError_Right: ");
+  Serial.print(String(error_right));
+  Serial.print(" | Integrate_Right: ");
+  Serial.print(String(integrate_right));
+  Serial.print("| rotation: ");
+  Serial.print(String(rotation));
+
+  return -rotation;
 }
-void turn_right(){
-  move(1, 0, 128);
+
+int follow_front(){
+  float Ke=1, Ki=-0.3;
+  int error_front = distance_cm_front - DESIRED_DIST;
+  int integrate_front = integrate_front + error_front;
+  if(integrate_front>VAL_MAX) integrate_front=VAL_MAX;
+  if(integrate_front<-VAL_MAX) integrate_front=-VAL_MAX;
+  
+  int linear = Ke*error_front; //+Ki*integrate_right;
+  if(linear>250) linear=250;
+  else if(linear<0) linear=0;
+  
+  Serial.print("\nError_Front: ");
+  Serial.print(String(error_front));
+  Serial.print(" | Integrate_Front: ");
+  Serial.print(String(integrate_front));
+  Serial.print("| Linear: ");
+  Serial.print(String(linear));
+
+  return linear;
 }
-void turn_left(){
-  move(1, 128, 0);
-}
+
 
 /*---------------------------------------------------------------/
 /-----------------------SETUP & LOOP-----------------------------/
@@ -263,7 +313,6 @@ void setup() {
   fsm_triggerSonar_Left.state=0;
   fsm_wall_right.state=0;
   fsm_front.state=0;
-  follow = 1;
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_RIGHT_PIN_echo), Sonar_receiveecho_right, CHANGE);
@@ -273,25 +322,23 @@ void setup() {
 
 }
 
-
+/*
 void loop() 
 { 
   int value;
-  for(value = 0 ; value <= 135; value+=5) 
+  for(value = -100 ; value <= 100; value+=5) 
   { 
-    move(1,value,0);
-    Serial.print("vel_R: ");
-    Serial.print(String(velocity_R));
-    Serial.print("vel_L: ");
-    Serial.println(String(velocity_L));
-    delay(1000); 
+    move(value,0);
+    Serial.print("value: ");
+    Serial.println(String(value));
+    delay(500); 
   }
 }
+*/
 
 
 
 
-/*
 void loop() 
 {
   unsigned long now = millis();
@@ -352,7 +399,7 @@ void loop()
     Serial.print(String(distance_cm_right));
     Serial.print(" Distance to wall (LEFT): ");
     Serial.println(String(distance_cm_left));
-    * /
+    */
 
     
 
@@ -393,10 +440,13 @@ void loop()
     Serial.print("fsm_wall_right: ");
     Serial.println(fsm_wall_right.state);
     
-    * /
+    */
+
+    //int rotation=follow_right();
+    int linear=follow_front();
+    move(0, linear);
 
   }
 }
 
 
-*/
