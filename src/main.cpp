@@ -70,6 +70,8 @@ unsigned long Echotime_init_right;
 unsigned long Echotime_init_left;
 
 volatile int valores_right[5];
+volatile int valores_left[5];
+volatile int valores_front[5];
 volatile int cont_f, cont_r, cont_l;
 
 
@@ -106,6 +108,9 @@ void Sonar_receiveecho_front(){
     duration_sound_front=micros()-Echotime_init_front;
     prev_dist_front = distance_cm_front;
     distance_cm_front=microsecondsToCentimeters(duration_sound_front);
+    valores_front[cont_f]=distance_cm_front;
+    cont_f=cont_f+1;
+    if(cont_f>4) cont_f=0;
     fsm_triggerSonar_Front.new_state = 0;
     set_state(fsm_triggerSonar_Front, fsm_triggerSonar_Front.new_state);
   }
@@ -114,7 +119,7 @@ void Sonar_receiveecho_front(){
 void Sonar_receiveecho_right(){
   int sonar_echo_r=digitalRead(SONAR_RIGHT_PIN_echo);
 
-  if (fsm_triggerSonar_Right.state==1){
+  if (sonar_echo_r==HIGH && fsm_triggerSonar_Right.state==1){
     Echotime_init_right=micros();
     fsm_triggerSonar_Right.new_state = 2;
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
@@ -146,6 +151,9 @@ void Sonar_receiveecho_left(){
     duration_sound_left=micros()-Echotime_init_left;
     prev_dist_left = distance_cm_left;
     distance_cm_left=microsecondsToCentimeters(duration_sound_left);
+    valores_left[cont_l]=distance_cm_left;
+    cont_l=cont_l+1;
+    if(cont_l>4) cont_l=0;
     fsm_triggerSonar_Left.new_state = 0;
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
   }
@@ -182,8 +190,6 @@ int minimo_right(){
 /--------------------------MOTORES-------------------------------/
 /---------------------------------------------------------------*/
 
-volatile float velocity_R = 0;
-volatile float velocity_L = 0;
 volatile int count_wheel_R, count_wheel_L, dir_R, dir_L;
 int wheel_R, wheel_L;
 
@@ -217,9 +223,9 @@ void set_motor(int value_r,int value_l){
 }
 
 int move(int rotation_speed, int linear_speed){
-  if(abs(rotation_speed)>100){
-    if(rotation_speed<0) rotation_speed=-100;
-    else rotation_speed=100;
+  if(abs(rotation_speed)>50){
+    if(rotation_speed<0) rotation_speed=-50;
+    else rotation_speed=50;
   }
 
   /*linear_speed=linear_speed-0.2*rotation_speed;
@@ -241,7 +247,7 @@ int move(int rotation_speed, int linear_speed){
   if(speed_r>250) {speed_r=250; res=-1;}
   if(speed_l>250) {speed_l=250; res=-1;}
 
-  Serial.print("\nSpeed_R: ");
+  Serial.print("| Speed_R: ");
   Serial.print(speed_r);
   Serial.print("| Speed_L: ");
   Serial.print(speed_l);
@@ -273,7 +279,8 @@ int  integrate_front,  integrate_right,  integrate_left;
 
 
 int follow_right(){
-  float Ke=0.5, Ki=0.001, Kd=6;
+  float Ke_p=0.2, Ki_p=0.000, Kd_p=0;
+  float Ke_n=3, Ki_n=0.000, Kd_n=0;
   int dist = minimo_right();
   int error_right = dist - DESIRED_DIST;
   integrate_right = integrate_right + error_right;
@@ -281,9 +288,17 @@ int follow_right(){
   if(integrate_right<-VAL_MAX) integrate_right=-VAL_MAX;
   int derivative_right = error_right - last_error_right;
   
-  int rotation = Ke*error_right + Ki*integrate_right + Kd*derivative_right;
-
-  Serial.print("\nDist_Right: ");
+  int rotation;
+  if(error_right>0){
+    rotation = Ke_p*error_right + Ki_p*integrate_right + Kd_p*derivative_right;
+  }
+  else{
+    rotation = Ke_n*error_right + Ki_n*integrate_right + Kd_n*derivative_right;
+  }
+  
+  Serial.print("\nDist: ");
+  Serial.print(distance_cm_right);
+  Serial.print(" | Dist_Right: ");
   Serial.print(String(dist));
   Serial.print(" | Error_Right: ");
   Serial.print(String(error_right));
@@ -388,10 +403,10 @@ void loop()
 
   if(now-init_motors > intv_motors){
 
-    Serial.print("\nMotor Right: ");
+    Serial.print(" | Motor Right: ");
     Serial.print(count_wheel_R);
     Serial.print(" Motor Left: ");
-    Serial.println(count_wheel_L);
+    Serial.print(count_wheel_L);
     wheel_R=count_wheel_R;
     wheel_L=count_wheel_L;
     count_wheel_R=0;
@@ -420,9 +435,9 @@ void loop()
     fsm_triggerSonar_Right.tis = cur_time - fsm_triggerSonar_Right.tes;
     fsm_triggerSonar_Left.tis = cur_time - fsm_triggerSonar_Left.tes;
 
-    if (fsm_triggerSonar_Front.state == 0
-        && fsm_triggerSonar_Right.state == 0
-        && fsm_triggerSonar_Left.state == 0 ){
+    if (fsm_triggerSonar_Front.state == 0 ){
+     //   && fsm_triggerSonar_Right.state == 0
+     //   && fsm_triggerSonar_Left.state == 0 ){
 
       send_trigger();
       fsm_triggerSonar_Front.new_state = 1;
