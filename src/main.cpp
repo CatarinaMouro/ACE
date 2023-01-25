@@ -24,6 +24,8 @@
 #define DIST_MAX 500
 #define DIST_MIN 10
 #define VAL_MAX 50
+#define VAL_MAX_TURN 50
+#define VAL_MAX_LINEAR 200
 #define SPEED_LINEAR 100
 #define SPEED_TURN 50
 
@@ -222,30 +224,29 @@ void set_motor(int value_r,int value_l){
   analogWrite(PWM_MOTOR_LEFT,  abs(value_l));    //PWM Speed Control
 }
 
-int move(int rotation_speed, int linear_speed){
-  if(abs(rotation_speed)>50){
-    if(rotation_speed<0) rotation_speed=-50;
-    else rotation_speed=50;
+void move(int rotation_speed, int linear_speed){
+  if(abs(rotation_speed)>VAL_MAX_TURN){
+    if(rotation_speed<0) rotation_speed=-VAL_MAX_TURN;
+    else rotation_speed=VAL_MAX_TURN;
+  }
+  if(abs(linear_speed)>VAL_MAX_LINEAR){
+    if(linear_speed<0) linear_speed=-VAL_MAX_LINEAR;
+    else linear_speed=VAL_MAX_LINEAR;
   }
 
-  /*linear_speed=linear_speed-0.2*rotation_speed;
-  if(linear_speed>250) linear_speed=250;
-  else if(linear_speed<0) linear_speed=0;
-*/  
-
-
+  int K_r=1.06; // K=1.18;
   int speed_r = linear_speed + rotation_speed;
   int speed_l = linear_speed - rotation_speed;
-  int res=0;
 
-  int K_r=1.04, K=1.18;
   int err_w = speed_r - speed_l;
   int err_r = wheel_R - wheel_L;
   speed_r = speed_r + K_r*(err_w-err_r);
 
 
-  if(speed_r>250) {speed_r=250; res=-1;}
-  if(speed_l>250) {speed_l=250; res=-1;}
+  if(speed_r>250) speed_r=250;
+  else if(speed_r<-50) speed_r=-50;
+  if(speed_l>250) speed_l=250;
+  else if(speed_l<-50) speed_l=-50;
 
   Serial.print("| Speed_R: ");
   Serial.print(speed_r);
@@ -254,20 +255,30 @@ int move(int rotation_speed, int linear_speed){
 
   set_motor(speed_r,speed_l);
 
-  return res;
 }
 
 
-void turn_right(){
-  move(-SPEED_TURN, SPEED_LINEAR);
+void turn_right(int Linear){
+  move(-SPEED_TURN, Linear);
 }
-void turn_left(){
-  move(SPEED_TURN, SPEED_LINEAR);
+void turn_left(int Linear){
+  move(SPEED_TURN, Linear);
 }
 void move_stop(){
   set_motor(0, 0);
 }
 
+void move_forward(int linear){
+  int K_r=1.1;
+
+  int err_r = wheel_R - wheel_L;
+  int linear_r = linear - K_r*err_r;
+
+  if(linear>250) linear=250;
+  if(linear_r>250) linear_r=250;
+
+  set_motor(linear_r,linear);
+}
 
 
 /*---------------------------------------------------------------/
@@ -279,7 +290,7 @@ int  integrate_front,  integrate_right,  integrate_left;
 
 
 int follow_right(){
-  float Ke_p=0.2, Ki_p=0.000, Kd_p=0;
+  float Ke_p=0.5, Ki_p=0.000, Kd_p=0;
   float Ke_n=3, Ki_n=0.000, Kd_n=0;
   int dist = minimo_right();
   int error_right = dist - DESIRED_DIST;
@@ -315,14 +326,14 @@ int follow_right(){
 }
 
 int follow_front(){
-  float Ke=0.75, Ki=0.00001, Kd=0.003;
+  float Ke=5, Ki=0, Kd=0;
   int error_front = distance_cm_front - DESIRED_DIST;
   integrate_front = integrate_front + error_front;
   if(integrate_front>VAL_MAX) integrate_front=VAL_MAX;
   if(integrate_front<-VAL_MAX) integrate_front=-VAL_MAX;
   int derivative_front = error_front - last_error_front;
   
-  int linear = Ke*error_front; //+Ki*integrate_right + Kd*derivative_front;
+  int linear = Ke*error_front + Ki*integrate_right + Kd*derivative_front;
 
   
   Serial.print("\nError_Front: ");
@@ -401,12 +412,7 @@ void loop()
 {
   unsigned long now = millis();
 
-  if(now-init_motors > intv_motors){
-
-    Serial.print(" | Motor Right: ");
-    Serial.print(count_wheel_R);
-    Serial.print(" Motor Left: ");
-    Serial.print(count_wheel_L);
+  if((now-init_motors) > intv_motors){
     wheel_R=count_wheel_R;
     wheel_L=count_wheel_L;
     count_wheel_R=0;
@@ -477,8 +483,8 @@ void loop()
     
  
     int rotation=follow_right();
-    //int linear=follow_front();
-    move(rotation, 100);
+    int linear=follow_front();
+    move(rotation, linear);
     
   }
 }
