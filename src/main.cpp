@@ -19,15 +19,17 @@
 #define IN1_MOTOR_LEFT 12
 #define IN2_MOTOR_LEFT 11
 
-#define DESIRED_DIST 25
-#define MARGEM 0
+#define DESIRED_DIST 20
+#define DESIRED_DIST_FRONT 15
+#define MARGEM 10
+#define MARGEM_FRONT 25
 #define DIST_MAX 500
 #define DIST_MIN 10
 #define VAL_MAX 50
 #define VAL_MAX_TURN 80
-#define VAL_MAX_LINEAR 150
+#define VAL_MAX_LINEAR 170
 #define SPEED_LINEAR 100
-#define SPEED_TURN 50
+#define SPEED_TURN 70
 #define MAX_BACK_SPEED -100
 
 unsigned long interval, last_cycle, intv_motors, init_motors;
@@ -73,7 +75,7 @@ unsigned long Echotime_init_right;
 unsigned long Echotime_init_left;
 
 volatile int valores_right[3];
-volatile int valores_left[5];
+volatile int valores_left[3];
 volatile int cont_r, cont_l;
 
 
@@ -232,7 +234,7 @@ void move(int rotation_speed, int linear_speed){
     else linear_speed=VAL_MAX_LINEAR;
   }
 
-  float K_r=0.5; // K=1.18;
+  float K_r=0.25; // K=1.18;
   int speed_r = linear_speed + rotation_speed;
   int speed_l = linear_speed - rotation_speed;
 
@@ -297,8 +299,8 @@ int  integrate_front,  integrate_right,  integrate_left;
 
 
 int follow_right(){
-  float Ke_p=0.5, Ki_p=0.000, Kd_p=0;
-  float Ke_n=3, Ki_n=0.000, Kd_n=0;
+  float Ke_p=1, Ki_p=0.000, Kd_p=2.5;
+  float Ke_n=3, Ki_n=0.000, Kd_n=2.5;
   int dist = minimo_right();
   int error_right = dist - DESIRED_DIST;
   integrate_right = integrate_right + error_right;
@@ -319,27 +321,26 @@ int follow_right(){
   return -rotation;
 }
 
-int follow_front(){
-  float Ke=5, Ki=0, Kd=0;
-  int error_front = distance_cm_front - DESIRED_DIST;
+int follow_front(int dist){
+  float Ke=5, Ki=0, Kd=0, K=0;
+  int error_front = distance_cm_front - DESIRED_DIST_FRONT;
   integrate_front = integrate_front + error_front;
   if(integrate_front>VAL_MAX) integrate_front=VAL_MAX;
   if(integrate_front<-VAL_MAX) integrate_front=-VAL_MAX;
   int derivative_front = error_front - last_error_front;
   
   int linear = Ke*error_front + Ki*integrate_right + Kd*derivative_front;
+  if(dist>60) linear = linear- K*abs(dist);
   if(linear<0) linear=0;
 
   last_error_front=error_front;
 
-  return linear;
+  return linear; 
 }
 
 int follow_left(){
-  //float Ke_p=0.5, Ki_p=0.000, Kd_p=0;
-  //float Ke_n=3, Ki_n=0.000, Kd_n=0;
-  float Ke_p=2, Ki_p=0.000, Kd_p=0;
-  float Ke_n=0.2, Ki_n=0.000, Kd_n=0;
+  float Ke_p=0.4, Ki_p=0.000, Kd_p=0;
+  float Ke_n=6.5, Ki_n=0.000, Kd_n=0;
   int dist = minimo_left();
   int error_left = dist - DESIRED_DIST;
   integrate_left = integrate_left + error_left;
@@ -402,7 +403,7 @@ void setup() {
   pinMode(ENCODER_A_LEFT,INPUT);
   pinMode(ENCODER_B_LEFT,INPUT);
 
-  interval = 100;
+  interval = 40;
   intv_motors = 100;
   FOUND=0;
   DIRECTION=0;
@@ -509,55 +510,104 @@ void loop()
     Serial.print(fsm_right.state);
 
 
-    /*
+    
     //-----------------FSM RIGHT-------------------//
     if (fsm_cntr.state!=1){
       fsm_right.new_state=0;
     }
     else if(fsm_right.state==0 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front>(DESIRED_DIST+MARGEM)      //front desimpedido 
+                                && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT)      //front desimpedido 
                                 && distance_cm_right<(DESIRED_DIST+MARGEM))){   //right impedido
       fsm_right.new_state=1;
     }
     else if(fsm_right.state==0 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
       fsm_right.new_state=2;
     }
     else if(fsm_right.state==1 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
       fsm_right.new_state=2;
     }
-    else if(fsm_right.state==1 && (distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+    else if(fsm_right.state==1 && ((distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT)))  //front impedido
+                               || (distance_cm_left<(MARGEM))){
       fsm_right.new_state=3;
     }
-    else if(fsm_right.state==2 && distance_cm_front>(DESIRED_DIST+MARGEM)){   //front desimpedido
+    else if(fsm_right.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT)){   //front desimpedido
       fsm_right.new_state=1;
     }
     else if(fsm_right.state==2 && (distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
       fsm_right.new_state=3;
+    }
+    else if(fsm_right.state==3 && distance_cm_left>(DESIRED_DIST+MARGEM)){      //left desimpedido
+      fsm_right.new_state=2;
     }
     set_state(fsm_right, fsm_right.new_state);
   
-    if(fsm_right.state==0) move_stop();
-    else if(fsm_right.state==1){
+    if(fsm_right.state==1){
       int rotation=follow_right();
-      int linear=follow_front();
+      int linear=follow_front(distance_cm_right);
       move(rotation, linear);
     }
     else if(fsm_right.state==2){
-      int linear=follow_front();
+      int linear=follow_front(0);
       turn_left(linear);
     } 
     else if(fsm_right.state==3) move(0, MAX_BACK_SPEED);
     
-    */
+    
+  
+    //-----------------FSM LEFT-------------------//
+    if (fsm_cntr.state!=2){
+      fsm_left.new_state=0;
+    }
+    else if(fsm_left.state==0 && (distance_cm_right>(DESIRED_DIST+MARGEM)       //left desimpedido
+                                && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT)      //front desimpedido 
+                                && distance_cm_left<(DESIRED_DIST+MARGEM))){   //right impedido
+      fsm_left.new_state=1;
+    }
+    else if(fsm_left.state==0 && (distance_cm_right>(DESIRED_DIST+MARGEM)       //left desimpedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
+      fsm_left.new_state=2;
+    }
+    else if(fsm_left.state==1 && (distance_cm_right>(DESIRED_DIST+MARGEM)       //left desimpedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
+      fsm_left.new_state=2;
+    }
+    else if(fsm_left.state==1 && ((distance_cm_right<(DESIRED_DIST+MARGEM)       //left impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT)))  //front impedido
+                               || (distance_cm_right<(MARGEM))){
+      fsm_left.new_state=3;
+    }
+    else if(fsm_left.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT)){   //front desimpedido
+      fsm_left.new_state=1;
+    }
+    else if(fsm_left.state==2 && (distance_cm_right<(DESIRED_DIST+MARGEM)       //left impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT))){   //front impedido
+      fsm_left.new_state=3;
+    }
+    else if(fsm_left.state==3 && distance_cm_right>(DESIRED_DIST+MARGEM)){      //left desimpedido
+      fsm_left.new_state=2;
+    }
+    set_state(fsm_left, fsm_left.new_state);
+  
+    if(fsm_left.state==1){
+      int rotation=follow_left();
+      int linear=follow_front(distance_cm_left);
+      move(rotation, linear);
+    }
+    else if(fsm_left.state==2){
+      int linear=follow_front(0);
+      turn_right(linear);
+    } 
+    else if(fsm_left.state==3) move(0, MAX_BACK_SPEED);
+    
 
-    int rotation=follow_right();
+    //int rotation=follow_right();
     //int rotation=follow_left();
-    int linear=follow_front();
-    move(rotation, linear);
+    //int linear=follow_front();
+    //move(rotation, linear);
     
   }
 }
