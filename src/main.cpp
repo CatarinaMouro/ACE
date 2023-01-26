@@ -21,9 +21,26 @@
 
 #define N 3
 
+/*
+
 #define DESIRED_DIST 20
 #define DESIRED_DIST_FRONT 10
 #define MARGEM 10
+#define MARGEM_FRONT_init 10
+#define MARGEM_FRONT_fim 45
+#define DIST_MAX 500
+#define DIST_MIN 10
+#define VAL_MAX 50
+#define VAL_MAX_TURN 80
+#define VAL_MAX_LINEAR 170
+#define MAX_BACK_SPEED -100
+*/
+
+#define DESIRED_DIST 20
+#define DESIRED_DIST_FRONT 15
+#define DESIRED_DIST_FRONT 10
+#define MARGEM 10
+#define MARGEM_FRONT 25
 #define MARGEM_FRONT_init 15
 #define MARGEM_FRONT_fim 3*MARGEM_FRONT_init
 #define DIST_MAX 500
@@ -130,6 +147,7 @@ void Sonar_receiveecho_right(){
     duration_sound_right=micros()-Echotime_init_right;
     prev_dist_right = distance_cm_right;
     distance_cm_right=microsecondsToCentimeters(duration_sound_right);
+    if(distance_cm_right>400) distance_cm_right = prev_dist_right;
     valores_right[cont_r]=distance_cm_right;
     cont_r=cont_r+1;
     if(cont_r>4) cont_r=0;
@@ -269,13 +287,10 @@ void move(int rotation_speed, int linear_speed){
 
 
 void turn_right(int Linear){
-  move(-SPEED_TURN, Linear);
+  move(-VAL_MAX_TURN, Linear);
 }
 void turn_left(int Linear){
-  int turn=SPEED_TURN;
-  if(distance_cm_right<MARGEM_FRONT_init) 
-    turn = turn+0.8*distance_cm_right;
-  move(turn, Linear);
+  move(VAL_MAX_TURN, Linear);
 }
 void move_stop(){
   set_motor(0, 0);
@@ -506,23 +521,23 @@ void loop()
     
     
     
-    
+    /*
     Serial.print("\nfsm_cntr: ");
     Serial.print(fsm_cntr.state);
     Serial.print("| fsm_find: ");
     Serial.print(fsm_find.state);
     Serial.print("| fsm_right: ");
     Serial.print(fsm_right.state);
-    
+    */
 
-    /*
+   
     Serial.print("\ndist_right: ");
     Serial.print(distance_cm_right);
     Serial.print("| dist_front: ");
     Serial.print(distance_cm_front);
     Serial.print("| dist_left: ");
     Serial.print(distance_cm_left);
-    */
+    
     //-----------------FSM RIGHT-------------------//
     if (fsm_cntr.state!=1){
       fsm_right.new_state=0;
