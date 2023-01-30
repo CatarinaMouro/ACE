@@ -35,6 +35,10 @@
 #define SPEED_TURN 60
 #define MAX_BACK_SPEED -100
 
+#define RIGHT 1
+#define LEFT 2
+#define TIMEOUT 5000
+
 unsigned long interval, last_cycle, intv_motors;
 volatile unsigned long  init_motors;
 unsigned long loop_micros;
@@ -60,7 +64,6 @@ void set_state(fsm_t& fsm, int new_state)
 }
 
 fsm_t fsm_cntr;
-fsm_t fsm_find;
 fsm_t fsm_right;
 fsm_t fsm_left;
 
@@ -435,7 +438,6 @@ void setup() {
   fsm_right.state=0;
   fsm_left.state=0;
   fsm_cntr.state=1;
-  fsm_find.state=0;
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_RIGHT_PIN_echo), Sonar_receiveecho_right, CHANGE);
@@ -469,7 +471,6 @@ void loop()
 
     
     fsm_cntr.tis = cur_time - fsm_cntr.tes;
-    fsm_find.tis = cur_time - fsm_find.tes;
     fsm_right.tis = cur_time - fsm_right.tes;
     fsm_left.tis = cur_time - fsm_left.tes;
 
@@ -518,8 +519,6 @@ void loop()
     
     Serial.print("\nfsm_cntr: ");
     Serial.print(fsm_cntr.state);
-    Serial.print("| fsm_find: ");
-    Serial.print(fsm_find.state);
     Serial.print("| fsm_right: ");
     Serial.print(fsm_right.state);
     Serial.print("| fsm_left: ");
@@ -534,26 +533,33 @@ void loop()
     Serial.print("| dist_left: ");
     Serial.print(distance_cm_left);
 
-    /*
+    
     //-----------------FSM CONTROL-------------------//
-    if (fsm_cntr.state==0 && FOUND && DIRECTION==0){
+    if (fsm_cntr.state==0 && ((distance_cm_right<50) || (distance_cm_front<30 && distance_cm_left>50))){
+      DIRECTION=RIGHT;
       fsm_cntr.new_state=1;
     }
-    else if (fsm_cntr.state==0 && FOUND && DIRECTION==1){
+    else if (fsm_cntr.state==0 && (distance_cm_left<50)){
+      DIRECTION=LEFT;
       fsm_cntr.new_state=2;
     }
-    else if (fsm_cntr.state==1 && fsm_right.state==4 && fsm_right.tis>5000000){
-      fsm_cntr.new_state=0;
+    else if (fsm_cntr.state==1 && fsm_right.state==4 && fsm_right.tis>TIMEOUT){
+      fsm_cntr.new_state=3;
     }
-    else if (fsm_cntr.state==2 && fsm_left.state != 3
-          && ((distance_cm_left>DIST_MAX && distance_cm_front>DIST_MAX) || distance_cm_right<DIST_MIN)){
-      fsm_cntr.new_state=0;
+    else if (fsm_cntr.state==2 && fsm_left.state==4 && fsm_left.tis>TIMEOUT){
+      fsm_cntr.new_state=3;
+    }
+    else if(fsm_cntr.state==3 && DIRECTION==RIGHT && (distance_cm_right<50 || distance_cm_front<30)){
+      fsm_cntr.new_state=1;
+    }
+    else if(fsm_cntr.state==3 && DIRECTION==LEFT && (distance_cm_left<50 || distance_cm_front<30)){
+      fsm_cntr.new_state=2;
     }
     set_state(fsm_cntr, fsm_cntr.new_state);
 
-    if(fsm_cntr.state==0) move(0, VAL_MAX_LINEAR);
+    if(fsm_cntr.state==0 || fsm_cntr.state==3) move(0, VAL_MAX_LINEAR);
 
-    */
+    
    
     
     //-----------------FSM RIGHT-------------------//
