@@ -292,14 +292,14 @@ void turn_right(int Linear)
 {
   int turn = SPEED_TURN;
   if (distance_cm_left < MARGEM_FRONT_init)
-    turn = turn + 1.1 * distance_cm_left;
+    turn = turn + 1.15 * distance_cm_left;
   move(-turn, Linear);
 }
 void turn_left(int Linear)
 {
   int turn = SPEED_TURN;
   if (distance_cm_right < MARGEM_FRONT_init)
-    turn = turn + 1.1 * distance_cm_right;
+    turn = turn + 1.15 * distance_cm_right;
   move(turn, Linear);
 }
 void move_stop()
@@ -391,10 +391,10 @@ int follow_front()
 
 int follow_left()
 {
-  float Ke_p = 0.4, Ki_p = 0.000, Kd_p = 0;
-  float Ke_n = 3, Ki_n = 0.000, Kd_n = 0;
+  float Ke_p = 0.8, Ki_p = 0.000, Kd_p = 10;
+  float Ke_n = 8, Ki_n = 0.000, Kd_n = 10;
   int dist = minimo_left();
-  int error_left = dist - DESIRED_DIST;
+  int error_left = dist - (DESIRED_DIST+3);
   integrate_left = integrate_left + error_left;
   if (integrate_left > VAL_MAX)
     integrate_left = VAL_MAX;
@@ -414,7 +414,7 @@ int follow_left()
 
   last_error_left = error_left;
 
-  /*
+  
   Serial.print("\nDist_left: ");
   Serial.print(String(dist));
   Serial.print(" | Error_left: ");
@@ -425,7 +425,7 @@ int follow_left()
   Serial.print(String(derivative_left));
   Serial.print("| rotation: ");
   Serial.print(String(rotation));
-  */
+  
 
   return rotation;
 }
@@ -473,7 +473,7 @@ void setup()
   fsm_triggerSonar_Left.state = 0;
   fsm_right.state = 0;
   fsm_left.state = 0;
-  fsm_cntr.state = 1;
+  fsm_cntr.state = 2;
   fsm_find.state = 0;
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
@@ -565,6 +565,7 @@ void loop()
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
 
+/*
     Serial.print("\nfsm_cntr: ");
     Serial.print(fsm_cntr.state);
     Serial.print("| fsm_find: ");
@@ -572,13 +573,13 @@ void loop()
     Serial.print("| fsm_right: ");
     Serial.print(fsm_right.state);
 
-    Serial.print("| dist_right: ");
+    Serial.print("\ndist_right: ");
     Serial.print(distance_cm_right);
     Serial.print("| dist_front: ");
     Serial.print(distance_cm_front);
     Serial.print("| dist_left: ");
     Serial.print(distance_cm_left);
-
+*/
     //-----------------FSM RIGHT-------------------//
     if (fsm_cntr.state != 1)
     {
@@ -653,61 +654,56 @@ void loop()
     {
       fsm_left.new_state = 0;
     }
-    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_init) && distance_cm_left < (DESIRED_DIST + MARGEM)))
-    {
+    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_init) 
+                                 && distance_cm_left < (DESIRED_DIST + MARGEM))){
       fsm_left.new_state = 1;
     }
-    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)))
-    {
+    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){
       fsm_left.new_state = 2;
     }
-    else if (fsm_left.state == 1 && (distance_cm_right > (DESIRED_DIST + MARGEM) && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)))
-    {
+    else if (fsm_left.state == 1 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){
       fsm_left.new_state = 2;
     }
-    else if (fsm_left.state == 1 && ((distance_cm_right < (DESIRED_DIST + MARGEM) && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)) || (distance_cm_right < (MARGEM))))
-    {
+    else if (fsm_left.state == 1 && ((distance_cm_right < (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)) 
+                                 || (distance_cm_right < (MARGEM)))){
       fsm_left.new_state = 3;
     }
-    else if (fsm_left.state == 1 && (distance_cm_left > 2 * (DESIRED_DIST + MARGEM)))
-    {
+    else if (fsm_left.state == 1 && (distance_cm_left > 2 * (DESIRED_DIST + MARGEM))){
       fsm_left.new_state = 4;
     }
-    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_fim))
-    {
+    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_fim)){
       fsm_left.new_state = 1;
     }
-    else if (fsm_left.state == 2 && (distance_cm_right < (DESIRED_DIST + MARGEM) && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_fim)))
-    {
+    else if (fsm_left.state == 2 && (distance_cm_right < (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_fim))){
       fsm_left.new_state = 3;
     }
-    else if (fsm_left.state == 3 && distance_cm_right > (DESIRED_DIST + MARGEM))
-    {
+    else if (fsm_left.state == 3 && distance_cm_right > (DESIRED_DIST + MARGEM)){
       fsm_left.new_state = 2;
     }
-    else if (fsm_left.state == 4 && distance_cm_left < (DESIRED_DIST + MARGEM))
-    {
+    else if (fsm_left.state == 4 && distance_cm_left < (DESIRED_DIST + MARGEM)){
       fsm_left.new_state = 1;
     }
     set_state(fsm_left, fsm_left.new_state);
 
-    if (fsm_left.state == 1)
-    {
+    if (fsm_left.state == 1){
       int rotation = follow_left();
       int linear = follow_front();
       move(rotation, linear);
     }
-    else if (fsm_left.state == 2)
-    {
+    else if (fsm_left.state == 2){
       int linear = follow_front();
-      turn_right(0.5 * linear);
+      turn_right(0.3 * linear);
     }
-    else if (fsm_left.state == 3)
+    else if (fsm_left.state == 3)  
       move(0, MAX_BACK_SPEED);
-    else if (fsm_left.state == 4)
-    {
+    else if (fsm_left.state == 4){
       int linear = follow_front();
-      turn_left(0.10 * linear);
+      turn_left(0.3 * linear);
     }
 
     // int rotation=follow_right();
