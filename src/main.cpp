@@ -22,6 +22,7 @@
 
 #define DESIRED_DIST 10
 #define DESIRED_DIST_FRONT 5
+#define DESIRED_DIST_FRONT_L 7
 #define MARGEM 5
 #define MARGEM_FRONT_init 10
 #define MARGEM_FRONT_fim 4 * MARGEM_FRONT_init
@@ -391,8 +392,8 @@ int follow_front()
 
 int follow_left()
 {
-  float Ke_p = 0.8, Ki_p = 0.000, Kd_p = 10;
-  float Ke_n = 8, Ki_n = 0.000, Kd_n = 10;
+  float Ke_p = 0.8, Ki_p = 0.00005, Kd_p = 10;
+  float Ke_n = 6.5, Ki_n = 0.00005, Kd_n = 10;
   int dist = minimo_left();
   int error_left = dist - (DESIRED_DIST+3);
   integrate_left = integrate_left + error_left;
@@ -655,31 +656,31 @@ void loop()
       fsm_left.new_state = 0;
     }
     else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_init) 
+                                 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init) 
                                  && distance_cm_left < (DESIRED_DIST + MARGEM))){
       fsm_left.new_state = 1;
     }
     else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init))){
       fsm_left.new_state = 2;
     }
     else if (fsm_left.state == 1 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init))){
       fsm_left.new_state = 2;
     }
     else if (fsm_left.state == 1 && ((distance_cm_right < (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)) 
                                  || (distance_cm_right < (MARGEM)))){
       fsm_left.new_state = 3;
     }
-    else if (fsm_left.state == 1 && (distance_cm_left > 2 * (DESIRED_DIST + MARGEM))){
+    else if (fsm_left.state == 1 && (distance_cm_left > 4 * (DESIRED_DIST + MARGEM))){
       fsm_left.new_state = 4;
     }
-    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_fim)){
+    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim)){
       fsm_left.new_state = 1;
     }
     else if (fsm_left.state == 2 && (distance_cm_right < (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_fim))){
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim))){
       fsm_left.new_state = 3;
     }
     else if (fsm_left.state == 3 && distance_cm_right > (DESIRED_DIST + MARGEM)){
@@ -697,13 +698,13 @@ void loop()
     }
     else if (fsm_left.state == 2){
       int linear = follow_front();
-      turn_right(0.3 * linear);
+      turn_right(0.38 * linear);
     }
     else if (fsm_left.state == 3)  
       move(0, MAX_BACK_SPEED);
     else if (fsm_left.state == 4){
       int linear = follow_front();
-      turn_left(0.3 * linear);
+      turn_left(0.25 * linear);
     }
 
     // int rotation=follow_right();
