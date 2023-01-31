@@ -21,10 +21,10 @@
 #define N 3
 
 #define DESIRED_DIST 10
-#define DESIRED_DIST_FRONT 7
+#define DESIRED_DIST_FRONT 5
 #define MARGEM 5
-#define MARGEM_FRONT_init 15
-#define MARGEM_FRONT_fim 3 * MARGEM_FRONT_init
+#define MARGEM_FRONT_init 10
+#define MARGEM_FRONT_fim 4 * MARGEM_FRONT_init
 #define DIST_MAX 500
 #define DIST_MIN 10
 #define VAL_MAX 50
@@ -333,7 +333,7 @@ int integrate_front, integrate_right, integrate_left;
 int follow_right()
 {
   float Ke_p = 1.1, Ki_p = 0.000, Kd_p = 0;
-  float Ke_n = 5, Ki_n = 0.000, Kd_n = 0;
+  float Ke_n = 4.5, Ki_n = 0.000, Kd_n = 0;
   int dist = minimo_right();
   int error_right = dist - DESIRED_DIST;
   integrate_right = integrate_right + error_right;
@@ -638,14 +638,14 @@ void loop()
     else if (fsm_right.state == 2)
     {
       int linear = follow_front();
-      turn_left(0.3 * linear);
+      turn_left(0.5 * linear);
     }
     else if (fsm_right.state == 3)
       move(0, MAX_BACK_SPEED);
     else if (fsm_right.state == 4)
     {
       int linear = follow_front();
-      turn_right(0.1 * linear);
+      turn_right(0.32 * linear);
     }
 
     //-----------------FSM LEFT-------------------//
