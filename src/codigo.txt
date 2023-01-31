@@ -19,13 +19,21 @@
 #define IN1_MOTOR_LEFT 12
 #define IN2_MOTOR_LEFT 11
 
-#define DESIRED_DIST 30
-#define MARGEM 0
+#define N 3
+
+#define DESIRED_DIST 20
+#define DESIRED_DIST_FRONT 10
+#define MARGEM 10
+#define MARGEM_FRONT_init 15
+#define MARGEM_FRONT_fim 3*MARGEM_FRONT_init
 #define DIST_MAX 500
 #define DIST_MIN 10
 #define VAL_MAX 50
+#define VAL_MAX_TURN 80
+#define VAL_MAX_LINEAR 170
 #define SPEED_LINEAR 100
-#define SPEED_TURN 50
+#define SPEED_TURN 70
+#define MAX_BACK_SPEED -100
 
 unsigned long interval, last_cycle, intv_motors, init_motors;
 unsigned long loop_micros;
@@ -69,7 +77,10 @@ unsigned long Echotime_init_front;
 unsigned long Echotime_init_right;
 unsigned long Echotime_init_left;
 
-volatile int cont_f, cont_r, cont_l;
+volatile int valores_right[N];
+volatile int valores_left[N];
+volatile int cont_r, cont_l;
+
 
 // GET DISTANCES
 // Max Range: 4m
@@ -93,8 +104,6 @@ long microsecondsToCentimeters(long microseconds)
 void Sonar_receiveecho_front(){
   int sonar_echo_f=digitalRead(SONAR_FRONT_PIN_echo);
 
-  cont_f=cont_f+1;
-
   if (fsm_triggerSonar_Front.state==1){
     Echotime_init_front=micros();
     fsm_triggerSonar_Front.new_state = 2;
@@ -112,9 +121,7 @@ void Sonar_receiveecho_front(){
 void Sonar_receiveecho_right(){
   int sonar_echo_r=digitalRead(SONAR_RIGHT_PIN_echo);
 
-  cont_r=cont_r+1;
-
-  if (fsm_triggerSonar_Right.state==1){
+  if (sonar_echo_r==HIGH && fsm_triggerSonar_Right.state==1){
     Echotime_init_right=micros();
     fsm_triggerSonar_Right.new_state = 2;
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
@@ -123,6 +130,9 @@ void Sonar_receiveecho_right(){
     duration_sound_right=micros()-Echotime_init_right;
     prev_dist_right = distance_cm_right;
     distance_cm_right=microsecondsToCentimeters(duration_sound_right);
+    valores_right[cont_r]=distance_cm_right;
+    cont_r=cont_r+1;
+    if(cont_r>4) cont_r=0;
     fsm_triggerSonar_Right.new_state = 0;
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
 
@@ -131,8 +141,6 @@ void Sonar_receiveecho_right(){
 
 void Sonar_receiveecho_left(){
   int sonar_echo_l=digitalRead(SONAR_LEFT_PIN_echo);
-
-  cont_l=cont_l+1;
 
   if (fsm_triggerSonar_Left.state==1){
     Echotime_init_left=micros();
@@ -143,6 +151,9 @@ void Sonar_receiveecho_left(){
     duration_sound_left=micros()-Echotime_init_left;
     prev_dist_left = distance_cm_left;
     distance_cm_left=microsecondsToCentimeters(duration_sound_left);
+    valores_left[cont_l]=distance_cm_left;
+    cont_l=cont_l+1;
+    if(cont_l>4) cont_l=0;
     fsm_triggerSonar_Left.new_state = 0;
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
   }
@@ -164,7 +175,21 @@ void send_trigger(){
 }
 
 
+int minimo_right(){
+  int min=valores_right[0];
+  for(int i=1; i<N; i++){
+    if (valores_right[i]<min) min = valores_right[i];
+  }
+  return min;
+} 
 
+int minimo_left(){
+  int min=valores_left[0];
+  for(int i=1; i<N; i++){
+    if (valores_left[i]<min) min = valores_left[i];
+  }
+  return min;
+} 
 
 
 
@@ -172,12 +197,8 @@ void send_trigger(){
 /--------------------------MOTORES-------------------------------/
 /---------------------------------------------------------------*/
 
-volatile float velocity_R = 0;
-volatile float velocity_L = 0;
-volatile long count_wheel_R, count_wheel_L, dir_R, dir_L;
-
-
-
+volatile int count_wheel_R, count_wheel_L, dir_R, dir_L;
+int wheel_R, wheel_L;
 
 
 void wheelA_R(){
@@ -205,42 +226,74 @@ void set_motor(int value_r,int value_l){
   analogWrite(PWM_MOTOR_LEFT,  abs(value_l));    //PWM Speed Control
 }
 
-int move(int rotation_speed, int linear_speed){
-  if(abs(rotation_speed)>100){
-    if(rotation_speed<0) rotation_speed=-100;
-    else rotation_speed=100;
+
+void move(int rotation_speed, int linear_speed){
+  if(abs(rotation_speed)>VAL_MAX_TURN){
+    if(rotation_speed<0) rotation_speed=-VAL_MAX_TURN;
+    else rotation_speed=VAL_MAX_TURN;
+  }
+  if(abs(linear_speed)>VAL_MAX_LINEAR){
+    if(linear_speed<0) linear_speed=-VAL_MAX_LINEAR;
+    else linear_speed=VAL_MAX_LINEAR;
   }
 
-  /*linear_speed=linear_speed-0.2*rotation_speed;
-  if(linear_speed>250) linear_speed=250;
-  else if(linear_speed<0) linear_speed=0;
-*/
+  float K_r=0.25; // K=1.18;
   int speed_r = linear_speed + rotation_speed;
-  int speed_l = 1.18*linear_speed - rotation_speed;
-  int res=0;
+  int speed_l = linear_speed - rotation_speed;
 
-  if(speed_r>250) {speed_r=250; res=-1;}
-  if(speed_l>250) {speed_l=250; res=-1;}
+  int err_w = speed_r - speed_l;
+  int err_r = wheel_R - wheel_L;
+  speed_r = speed_r + K_r*(abs(err_w)-err_r);
 
-  set_motor(speed_r,speed_l);
-  Serial.print("\nMOVE: SPEED_R: ");
+
+  if(speed_r>250) speed_r=250;
+  else if(linear_speed>0 && speed_r<0) speed_r=0; // ?? TIRAR O = ??
+  else if(linear_speed<0 && speed_r<MAX_BACK_SPEED) speed_r=MAX_BACK_SPEED;
+
+  if(speed_l>250) speed_l=250;
+  else if(linear_speed>0 && speed_l<0) speed_l=0;
+  else if(linear_speed<0 && speed_l<MAX_BACK_SPEED) speed_l=MAX_BACK_SPEED;
+
+  
+  Serial.print("| Speed_Linear: ");
+  Serial.print(linear_speed);
+  Serial.print("| Speed_R: ");
   Serial.print(speed_r);
-  Serial.print("| SPEED_L: ");
-  Serial.println(speed_l);
-  return res;
+  Serial.print("| Speed_L: ");
+  Serial.print(speed_l);
+  
+  set_motor(speed_r,speed_l);
 }
 
 
-void turn_right(){
-  move(-SPEED_TURN, SPEED_LINEAR);
+
+
+void turn_right(int Linear){
+  move(-SPEED_TURN, Linear);
 }
-void turn_left(){
-  move(SPEED_TURN, SPEED_LINEAR);
+void turn_left(int Linear){
+  int turn=SPEED_TURN;
+  if(distance_cm_right<MARGEM_FRONT_init) 
+    turn = turn+0.8*distance_cm_right;
+  move(turn, Linear);
 }
 void move_stop(){
   set_motor(0, 0);
 }
 
+
+//JÁ N É PRECISO
+void move_linear(int linear){
+  int K_r=1.1;
+
+  int err_r = wheel_R - wheel_L;
+  int linear_r = linear - K_r*err_r;
+
+  if(linear>250) linear=250;
+  if(linear_r>250) linear_r=250;
+
+  set_motor(linear_r,linear);
+}
 
 
 /*---------------------------------------------------------------/
@@ -252,25 +305,22 @@ int  integrate_front,  integrate_right,  integrate_left;
 
 
 int follow_right(){
-  float Ke=0.3, Ki=0, Kd=0;
-  int error_right = distance_cm_right - DESIRED_DIST;
+  float Ke_p=1, Ki_p=0.000, Kd_p=0;
+  float Ke_n=3, Ki_n=0.000, Kd_n=0;
+  int dist = minimo_right();
+  int error_right = dist - DESIRED_DIST;
   integrate_right = integrate_right + error_right;
   if(integrate_right>VAL_MAX) integrate_right=VAL_MAX;
   if(integrate_right<-VAL_MAX) integrate_right=-VAL_MAX;
   int derivative_right = error_right - last_error_right;
   
-  int rotation = Ke*error_right + Ki*integrate_right + Kd*derivative_right;
-
-  Serial.print("\nDist_Right: ");
-  Serial.print(String(distance_cm_right));
-  Serial.print(" | Error_Right: ");
-  Serial.print(String(error_right));
-  Serial.print(" | Integrate_Right: ");
-  Serial.print(String(integrate_right));
-  Serial.print(" | derivative_right: ");
-  Serial.print(String(derivative_right));
-  Serial.print("| rotation: ");
-  Serial.print(String(rotation));
+  int rotation;
+  if(error_right>0){
+    rotation = Ke_p*error_right + Ki_p*integrate_right + Kd_p*derivative_right;
+  }
+  else{
+    rotation = Ke_n*error_right + Ki_n*integrate_right + Kd_n*derivative_right;
+  }
 
   last_error_right=error_right;
 
@@ -278,26 +328,55 @@ int follow_right(){
 }
 
 int follow_front(){
-  float Ke=0.75, Ki=0.00001, Kd=0.003;
-  int error_front = distance_cm_front - DESIRED_DIST;
+  float Ke=7, Ki=0, Kd=0;
+  int error_front = distance_cm_front - DESIRED_DIST_FRONT;
   integrate_front = integrate_front + error_front;
   if(integrate_front>VAL_MAX) integrate_front=VAL_MAX;
   if(integrate_front<-VAL_MAX) integrate_front=-VAL_MAX;
   int derivative_front = error_front - last_error_front;
   
-  int linear = Ke*error_front; //+Ki*integrate_right + Kd*derivative_front;
-
-  
-  Serial.print("\nError_Front: ");
-  Serial.print(String(error_front));
-  Serial.print(" | Integrate_Front: ");
-  Serial.print(String(integrate_front));
-  Serial.print("| Linear: ");
-  Serial.print(String(linear));
+  int linear = Ke*error_front + Ki*integrate_right + Kd*derivative_front;
+  if(linear<0) linear=0;
 
   last_error_front=error_front;
 
-  return linear;
+  return linear; 
+}
+
+int follow_left(){
+  float Ke_p=0.4, Ki_p=0.000, Kd_p=0;
+  float Ke_n=6.5, Ki_n=0.000, Kd_n=0;
+  int dist = minimo_left();
+  int error_left = dist - DESIRED_DIST;
+  integrate_left = integrate_left + error_left;
+  if(integrate_left>VAL_MAX) integrate_left=VAL_MAX;
+  if(integrate_left<-VAL_MAX) integrate_left=-VAL_MAX;
+  int derivative_left = error_left - last_error_left;
+  
+  int rotation;
+  if(error_left>0){
+    rotation = Ke_p*error_left + Ki_p*integrate_left + Kd_p*derivative_left;
+  }
+  else{
+    rotation = Ke_n*error_left + Ki_n*integrate_left + Kd_n*derivative_left;
+  }
+
+  last_error_left=error_left;
+
+  /*
+  Serial.print("\nDist_left: ");
+  Serial.print(String(dist));
+  Serial.print(" | Error_left: ");
+  Serial.print(String(error_left));
+  Serial.print(" | Integrate_left: ");
+  Serial.print(String(integrate_left));
+  Serial.print(" | derivative_left: ");
+  Serial.print(String(derivative_left));
+  Serial.print("| rotation: ");
+  Serial.print(String(rotation));
+  */
+
+  return rotation;
 }
 
 
@@ -307,7 +386,6 @@ int follow_front(){
 
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
 
   pinMode(SONAR_FRONT_PIN_trig, OUTPUT);
@@ -330,14 +408,16 @@ void setup() {
   pinMode(ENCODER_A_LEFT,INPUT);
   pinMode(ENCODER_B_LEFT,INPUT);
 
-  interval = 100;
-  intv_motors = 500;
+  interval = 40;
+  intv_motors = 100;
   FOUND=0;
   DIRECTION=0;
   count_wheel_R=0;
   count_wheel_L=0;
   dir_R=0;
   dir_L=0;
+  cont_r=0;
+  cont_l=0;
 
   
   fsm_triggerSonar_Front.state=0;
@@ -345,7 +425,7 @@ void setup() {
   fsm_triggerSonar_Left.state=0;
   fsm_right.state=0;
   fsm_left.state=0;
-  fsm_cntr.state=1;
+  fsm_cntr.state=2;
   fsm_find.state=0;
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
@@ -363,12 +443,9 @@ void loop()
 {
   unsigned long now = millis();
 
-  if(now-init_motors > intv_motors){
-
-    Serial.print("\nMotor Right: ");
-    Serial.print(count_wheel_R);
-    Serial.print(" Motor Left: ");
-    Serial.println(count_wheel_L);
+  if((now-init_motors) > intv_motors){
+    wheel_R=count_wheel_R;
+    wheel_L=count_wheel_L;
     count_wheel_R=0;
     count_wheel_L=0;
     init_motors = now;
@@ -395,7 +472,7 @@ void loop()
     fsm_triggerSonar_Right.tis = cur_time - fsm_triggerSonar_Right.tes;
     fsm_triggerSonar_Left.tis = cur_time - fsm_triggerSonar_Left.tes;
 
-    if (fsm_triggerSonar_Front.state == 0
+    if (  fsm_triggerSonar_Front.state == 0
         && fsm_triggerSonar_Right.state == 0
         && fsm_triggerSonar_Left.state == 0 ){
 
@@ -425,127 +502,145 @@ void loop()
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
 
-    /*
-    Serial.print(" Distance to wall (FRONT): ");
-    Serial.print(String(distance_cm_front));
-    Serial.print(" Distance to wall (RIGHT): ");
-    Serial.print(String(distance_cm_right));
-    Serial.print(" Distance to wall (LEFT): ");
-    Serial.println(String(distance_cm_left));
-    
-*/
-    
- 
 
-    Serial.print("fsm_cntr: ");
+    
+    
+    
+    
+    Serial.print("\nfsm_cntr: ");
     Serial.print(fsm_cntr.state);
     Serial.print("| fsm_find: ");
     Serial.print(fsm_find.state);
     Serial.print("| fsm_right: ");
-    Serial.println(fsm_right.state);
-
+    Serial.print(fsm_right.state);
     
-    //-----------------FSM CONTROL-------------------//
-    /*if (fsm_cntr.state==0 && FOUND && DIRECTION==0){
-      fsm_cntr.new_state=1;
-    }
-    else if (fsm_cntr.state==0 && FOUND && DIRECTION==1){
-      fsm_cntr.new_state=2;
-    }
-    else if (fsm_cntr.state==1 && ((distance_cm_right>DIST_MAX && distance_cm_front>DIST_MAX)
-                                    || distance_cm_left<DIST_MIN)
-                               && fsm_right.state != 3){
-      fsm_cntr.new_state=0;
-    }
-    else if (fsm_cntr.state==2 && ((distance_cm_left>DIST_MAX && distance_cm_front>DIST_MAX)
-                                    || distance_cm_right<DIST_MIN)
-                               && fsm_left.state != 3){
-      fsm_cntr.new_state=0;
-    }
-    set_state(fsm_cntr, fsm_cntr.new_state);*/
 
-
-  //-----------------FSM FIND-------------------//
-    if (fsm_cntr.state!=0){
-      fsm_find.new_state=0;
-    }
-    else if (fsm_find.state==0 && (distance_cm_right<distance_cm_left)){
-      fsm_find.new_state=1;
-    }
-    else if (fsm_find.state==0 && (distance_cm_left<distance_cm_right)){
-      fsm_find.new_state=2;
-    }
-    else if (fsm_find.state==1 && (distance_cm_left <=DESIRED_DIST 
-                                || distance_cm_front<=DESIRED_DIST
-                                || distance_cm_right<=DESIRED_DIST)){
-      fsm_find.new_state=3;
-    }
-    else if (fsm_find.state==2 && (distance_cm_left <=DESIRED_DIST 
-                                || distance_cm_front<=DESIRED_DIST
-                                || distance_cm_right<=DESIRED_DIST)){
-      fsm_find.new_state=3;
-    }
-    set_state(fsm_find, fsm_find.new_state);
-
-
-
-    if (fsm_find.state==0) FOUND=0;
-    else if (fsm_find.state==1){
-      DIRECTION = 0;
-      turn_right();
-    } 
-    else if (fsm_find.state==2){
-      DIRECTION = 1;
-      turn_left();
-    } 
-    else if (fsm_find.state==3) FOUND=1;
-    
-    
-//move(0, 150);
-//else if (fsm_find.state==4) 
-
-
-  //-----------------FSM RIGHT-------------------//
+    /*
+    Serial.print("\ndist_right: ");
+    Serial.print(distance_cm_right);
+    Serial.print("| dist_front: ");
+    Serial.print(distance_cm_front);
+    Serial.print("| dist_left: ");
+    Serial.print(distance_cm_left);
+    */
+    //-----------------FSM RIGHT-------------------//
     if (fsm_cntr.state!=1){
       fsm_right.new_state=0;
     }
     else if(fsm_right.state==0 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front>(DESIRED_DIST+MARGEM)      //front desimpedido 
+                                && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_init)      //front desimpedido 
                                 && distance_cm_right<(DESIRED_DIST+MARGEM))){   //right impedido
       fsm_right.new_state=1;
     }
     else if(fsm_right.state==0 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){   //front impedido
       fsm_right.new_state=2;
     }
     else if(fsm_right.state==1 && (distance_cm_left>(DESIRED_DIST+MARGEM)       //left desimpedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){   //front impedido
       fsm_right.new_state=2;
     }
-    else if(fsm_right.state==1 && (distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+    else if(fsm_right.state==1 && ((distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))  //front impedido
+                               || (distance_cm_left<(MARGEM)))){
       fsm_right.new_state=3;
     }
-    else if(fsm_right.state==2 && distance_cm_front>(DESIRED_DIST+MARGEM)){   //front desimpedido
+    else if(fsm_right.state==1 && (distance_cm_right>4*(DESIRED_DIST+MARGEM))){       //right desimpedido
+      fsm_right.new_state=4;
+    }
+    else if(fsm_right.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_fim)){   //front desimpedido
       fsm_right.new_state=1;
     }
     else if(fsm_right.state==2 && (distance_cm_left<(DESIRED_DIST+MARGEM)       //left impedido
-                                && distance_cm_front<(DESIRED_DIST+MARGEM))){   //front impedido
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_fim))){   //front impedido
       fsm_right.new_state=3;
+    }
+    else if(fsm_right.state==3 && distance_cm_left>(DESIRED_DIST+MARGEM)){      //left desimpedido
+      fsm_right.new_state=2;
+    }
+    else if(fsm_right.state==4 && distance_cm_right<(DESIRED_DIST+MARGEM)){   //right impedido
+      fsm_right.new_state=1;
     }
     set_state(fsm_right, fsm_right.new_state);
   
     if(fsm_right.state==1){
       int rotation=follow_right();
-      //int linear=follow_front();
-      move(rotation, 100);
+      int linear=follow_front();
+      move(rotation, linear);
     }
-    else if(fsm_right.state==2) turn_left();
-    else if(fsm_right.state==3) move(0, -SPEED_TURN);
+    else if(fsm_right.state==2){
+      int linear=follow_front();
+      turn_left(0.3*linear);
+    } 
+    else if(fsm_right.state==3) move(0, MAX_BACK_SPEED);
+    else if(fsm_right.state==4){
+      int linear=follow_front();
+      turn_right(0.3*linear);
+    } 
     
     
+  
+    //-----------------FSM LEFT-------------------//
+    if (fsm_cntr.state!=2){
+      fsm_left.new_state=0;
+    }
+    else if(fsm_left.state==0 && (distance_cm_right>(DESIRED_DIST+MARGEM)       
+                                && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_init)      
+                                && distance_cm_left<(DESIRED_DIST+MARGEM))){
+      fsm_left.new_state=1;
+    }
+    else if(fsm_left.state==0 && (distance_cm_right>(DESIRED_DIST+MARGEM)   
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){
+      fsm_left.new_state=2;
+    }
+    else if(fsm_left.state==1 && (distance_cm_right>(DESIRED_DIST+MARGEM)      
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){  
+      fsm_left.new_state=2;
+    }
+    else if(fsm_left.state==1 && ((distance_cm_right<(DESIRED_DIST+MARGEM)      
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init)) 
+                               || (distance_cm_right<(MARGEM)))){
+      fsm_left.new_state=3;
+    }
+    else if(fsm_left.state==1 && (distance_cm_left>4*(DESIRED_DIST+MARGEM))){      
+      fsm_left.new_state=4;
+    }
+    else if(fsm_left.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_fim)){  
+      fsm_left.new_state=1;
+    }
+    else if(fsm_left.state==2 && (distance_cm_right<(DESIRED_DIST+MARGEM)    
+                                && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_fim))){   
+      fsm_left.new_state=3;
+    }
+    else if(fsm_left.state==3 && distance_cm_right>(DESIRED_DIST+MARGEM)){   
+      fsm_left.new_state=2;
+    }
+    else if(fsm_left.state==4 && distance_cm_left<(DESIRED_DIST+MARGEM)){
+      fsm_left.new_state=1;
+    }
+    set_state(fsm_left, fsm_left.new_state);
+  
+    if(fsm_left.state==1){
+      int rotation=follow_left();
+      int linear=follow_front();
+      move(rotation, linear);
+    }
+    else if(fsm_left.state==2){
+      int linear=follow_front();
+      turn_right(0.3*linear);
+    } 
+    else if(fsm_left.state==3) move(0, MAX_BACK_SPEED);
+    else if(fsm_left.state==4){
+      int linear=follow_front();
+      turn_left(0.3*linear);
+    } 
+    
+    
+
+    //int rotation=follow_right();
+    //int rotation=follow_left();
+    //int linear=follow_front();
+    //move(rotation, linear);
     
   }
 }
-
-
