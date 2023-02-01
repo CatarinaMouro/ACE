@@ -644,3 +644,48 @@ void loop()
     
   }
 }
+
+
+
+
+    //-----------------FSM LEFT-------------------//
+    if (fsm_cntr.state!=2){
+      fsm_left.new_state=0;
+    }
+    else if (fsm_left.state == 1 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init))){
+      fsm_left.new_state = 2;
+    }
+    else if (fsm_left.state == 1 && ((distance_cm_right < (DESIRED_DIST + MARGEM) 
+                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)) 
+                                 || (distance_cm_right < (MARGEM)))){
+      fsm_left.new_state = 3;
+    }
+    else if (fsm_left.state == 1 && (distance_cm_left > 4 * (DESIRED_DIST + MARGEM))){
+      fsm_left.new_state = 4;
+    }
+    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim)){
+      fsm_left.new_state = 1;
+    }
+    else if (fsm_left.state == 2 && (distance_cm_left < (MARGEM) 
+                                 || distance_cm_front < (MARGEM))){
+      fsm_left.new_state = 3;
+    }
+    else if (fsm_left.state == 3 && distance_cm_right > (DESIRED_DIST + MARGEM)){
+      fsm_left.new_state = 5;
+    }
+    else if (fsm_left.state == 4 && distance_cm_left < (DESIRED_DIST + MARGEM)){
+      fsm_left.new_state = 1;
+    }
+    else if (fsm_left.state == 4 && (distance_cm_right < (MARGEM)
+                                 || distance_cm_front < (MARGEM))){
+      fsm_left.new_state = 3;
+    }
+    else if (fsm_left.state == 5 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim)
+                                 && fsm_left.tis>1500){
+      fsm_left.new_state = 1;
+    }
+    else if (fsm_left.state == 5 && (distance_cm_right < (MARGEM) 
+                                 || distance_cm_front < (MARGEM))){
+      fsm_left.new_state = 3;
+    }

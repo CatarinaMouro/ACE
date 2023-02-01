@@ -26,7 +26,7 @@
 #define DESIRED_DIST_FRONT 5
 #define DESIRED_DIST_FRONT_L 2
 #define MARGEM 5
-#define MARGEM_FRONT_init 10
+#define MARGEM_FRONT_init 15
 #define MARGEM_FRONT_fim 4 * MARGEM_FRONT_init
 #define DIST_MAX 500
 #define DIST_MIN 10
@@ -394,8 +394,8 @@ int follow_front()
 
 int follow_left()
 {
-  float Ke_p = 0, Ki_p = 0.00, Kd_p = 0;
-  float Ke_n = 6.7, Ki_n = 0.00, Kd_n = 10;
+  float Ke_p = 0.4, Ki_p = 0.00, Kd_p = 0;
+  float Ke_n = 6.5, Ki_n = 0.00, Kd_n = 10;
   int dist = minimo_left();
   int error_left = dist - (DESIRED_DIST+5);
   integrate_left = integrate_left + error_left;
@@ -475,8 +475,8 @@ void setup()
   fsm_triggerSonar_Right.state = 0;
   fsm_triggerSonar_Left.state = 0;
   fsm_right.state = 0;
-  fsm_left.state = 0;
-  fsm_cntr.state = 0;
+  fsm_left.state = 1;
+  fsm_cntr.state = 2;
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_RIGHT_PIN_echo), Sonar_receiveecho_right, CHANGE);
@@ -586,22 +586,13 @@ void loop()
     if (fsm_cntr.state != 1){
       fsm_right.new_state = 0;
     }
-    else if (fsm_right.state == 0 && (distance_cm_left > (DESIRED_DIST + MARGEM)                      // left desimpedido
-                                      && distance_cm_front > (DESIRED_DIST_FRONT + MARGEM_FRONT_init) // front desimpedido
-                                      && distance_cm_right < (DESIRED_DIST + MARGEM))){ // right impedido
-      fsm_right.new_state = 1;
-    }
-    else if (fsm_right.state == 0 && (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
-                                      && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){ // front impedido
-      fsm_right.new_state = 2;
-    }
     else if (fsm_right.state == 1 && (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
-                                      && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){ // front impedido
+                                  && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init))){ // front impedido
       fsm_right.new_state = 2;
     }
     else if (fsm_right.state == 1 && ((distance_cm_left < (DESIRED_DIST + MARGEM)                       // left impedido
-                                       && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)) // front impedido
-                                      || (distance_cm_left < (MARGEM)))){
+                                  && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)) // front impedido
+                                  || (distance_cm_left < (MARGEM)))){
       fsm_right.new_state = 3;
     }
     else if (fsm_right.state == 1 && (distance_cm_right > 4 * (DESIRED_DIST + MARGEM))){ // right desimpedido
@@ -639,54 +630,33 @@ void loop()
     }
 
     //-----------------FSM LEFT-------------------//
-    if (fsm_cntr.state != 2){
-      fsm_left.new_state = 0;
+    if (fsm_cntr.state!=2){
+      fsm_left.new_state=0;
     }
-    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init) 
-                                 && distance_cm_left < (DESIRED_DIST + MARGEM))){
-      fsm_left.new_state = 1;
+    else if(fsm_left.state==1 && (distance_cm_right>(DESIRED_DIST+MARGEM)      
+                              && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){  
+      fsm_left.new_state=2;
     }
-    else if (fsm_left.state == 0 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init))){
-      fsm_left.new_state = 2;
+    else if(fsm_left.state==1 && ((distance_cm_right<(DESIRED_DIST+MARGEM)      
+                              && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init)) 
+                              || (distance_cm_right<(MARGEM)))){
+      fsm_left.new_state=3;
     }
-    else if (fsm_left.state == 1 && (distance_cm_right > (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init))){
-      fsm_left.new_state = 2;
+    else if(fsm_left.state==1 && (distance_cm_left>4*(DESIRED_DIST+MARGEM))){      
+      fsm_left.new_state=4;
     }
-    else if (fsm_left.state == 1 && ((distance_cm_right < (DESIRED_DIST + MARGEM) 
-                                 && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)) 
-                                 || (distance_cm_right < (MARGEM)))){
-      fsm_left.new_state = 3;
+    else if(fsm_left.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_fim)){  
+      fsm_left.new_state=1;
     }
-    else if (fsm_left.state == 1 && (distance_cm_left > 4 * (DESIRED_DIST + MARGEM))){
-      fsm_left.new_state = 4;
+    else if(fsm_left.state==2 && (distance_cm_right<(MARGEM)    
+                              || distance_cm_front<(MARGEM))){   
+      fsm_left.new_state=3;
     }
-    else if (fsm_left.state == 2 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim)){
-      fsm_left.new_state = 1;
+    else if(fsm_left.state==3 && distance_cm_right>(DESIRED_DIST+MARGEM)){   
+      fsm_left.new_state=2;
     }
-    else if (fsm_left.state == 2 && (distance_cm_left < (MARGEM) 
-                                 || distance_cm_front < (MARGEM))){
-      fsm_left.new_state = 3;
-    }
-    else if (fsm_left.state == 3 && distance_cm_right > (DESIRED_DIST + MARGEM)){
-      fsm_left.new_state = 5;
-    }
-    else if (fsm_left.state == 4 && distance_cm_left < (DESIRED_DIST + MARGEM)){
-      fsm_left.new_state = 1;
-    }
-    else if (fsm_left.state == 4 && (distance_cm_right < (MARGEM)
-                                 || distance_cm_front < (MARGEM))){
-      fsm_left.new_state = 3;
-    }
-    else if (fsm_left.state == 5 && distance_cm_front > (DESIRED_DIST_FRONT_L + MARGEM_FRONT_fim)
-                                 && fsm_left.tis>1500){
-      fsm_left.new_state = 1;
-    }
-    else if (fsm_left.state == 5 && (distance_cm_right < (MARGEM) 
-                                 || distance_cm_front < (MARGEM))){
-      fsm_left.new_state = 3;
+    else if(fsm_left.state==4 && distance_cm_left<(DESIRED_DIST+3*MARGEM)){
+      fsm_left.new_state=1;
     }
 
     set_state(fsm_left, fsm_left.new_state);
@@ -698,13 +668,13 @@ void loop()
     }
     else if (fsm_left.state == 2 || fsm_left.state == 5){
       int linear = follow_front();
-      turn_right(0.35 * linear);
+      turn_right(0.38 * linear);
     }
     else if (fsm_left.state == 3)  
       move(0, MAX_BACK_SPEED);
     else if (fsm_left.state == 4){
       int linear = follow_front();
-      turn_left(0.25 * linear);
+      turn_left(0.28 * linear);
     }
 
 
@@ -714,37 +684,62 @@ void loop()
     if (fsm_cntr.state==0 && ((distance_cm_right<50 && distance_cm_right>0)
                           || (distance_cm_front<30 && distance_cm_left>50))){
       DIRECTION=RIGHT;
-      set_state(fsm_right, 1);
       fsm_cntr.new_state=1;
+      
+      if (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
+        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){ // front impedido
+        fsm_right.new_state = 2;
+      }
+      else fsm_right.new_state = 1;
+      set_state(fsm_right, fsm_right.new_state);
+
     }
     else if (fsm_cntr.state==0 && (distance_cm_left<50 && distance_cm_left>0)){
       DIRECTION=LEFT;
-      set_state(fsm_left, 1);
       fsm_cntr.new_state=2;
+
+      if (distance_cm_right > (DESIRED_DIST + MARGEM) 
+        && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)){
+          fsm_left.new_state = 2;
+      }
+      else fsm_left.new_state = 1;
+      set_state(fsm_left, fsm_left.new_state);
     }
     else if (fsm_cntr.state==1 && fsm_right.state==4 && fsm_right.tis>TIMEOUT){
-      fsm_cntr.new_state=3;
+      fsm_cntr.new_state=0;
     }
     else if (fsm_cntr.state==2 && fsm_left.state==4 && fsm_left.tis>TIMEOUT){
-      fsm_cntr.new_state=3;
+      fsm_cntr.new_state=0;
     }
     else if(fsm_cntr.state==3 && DIRECTION==RIGHT && (distance_cm_right<50 || distance_cm_front<30)){
-      set_state(fsm_right, 1);
       fsm_cntr.new_state=1;
+      
+      if (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
+        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){ // front impedido
+        fsm_right.new_state = 2;
+      }
+      else fsm_right.new_state = 1;
+      set_state(fsm_right, fsm_right.new_state);
     }
     else if(fsm_cntr.state==3 && DIRECTION==LEFT && (distance_cm_left<50 || distance_cm_front<30)){
-      set_state(fsm_left, 1);
       fsm_cntr.new_state=2;
+
+      if (distance_cm_right > (DESIRED_DIST + MARGEM) 
+        && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)){
+          fsm_left.new_state = 2;
+      }
+      else fsm_left.new_state = 1;
+      set_state(fsm_left, fsm_left.new_state);
     }
     set_state(fsm_cntr, fsm_cntr.new_state);
 
     if(fsm_cntr.state==0 || fsm_cntr.state==3) move(0, VAL_MAX_LINEAR);
-
-    */
+*/
 
     // int rotation=follow_right();
     // int rotation=follow_left();
     // int linear=follow_front();
     // move(rotation, linear);
   }
+
 }
