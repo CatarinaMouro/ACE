@@ -24,7 +24,6 @@
 
 #define DESIRED_DIST 10
 #define DESIRED_DIST_FRONT 5
-#define DESIRED_DIST_FRONT_L 2
 #define MARGEM 5
 #define MARGEM_FRONT_init 15
 #define MARGEM_FRONT_fim 4 * MARGEM_FRONT_init
@@ -280,7 +279,7 @@ void move(int rotation_speed, int linear_speed)
     speed_l = MAX_BACK_SPEED;
 
   
-  Serial.print("\nSpeed_Linear: ");
+  Serial.print("| Speed_Linear: ");
   Serial.print(linear_speed);
   Serial.print("| Speed_R: ");
   Serial.print(speed_r);
@@ -388,6 +387,13 @@ int follow_front(){
 
   last_error_front = error_front;
 
+  Serial.print("\nDist_right: ");
+  Serial.print(String(distance_cm_front));
+  Serial.print(" | Error_right: ");
+  Serial.print(String(error_front));
+  Serial.print("| rotation: ");
+  Serial.print(String(linear));
+
   return linear;
 }
 
@@ -473,9 +479,28 @@ void setup()
   fsm_triggerSonar_Front.state = 0;
   fsm_triggerSonar_Right.state = 0;
   fsm_triggerSonar_Left.state = 0;
-  fsm_right.state = 0;
-  fsm_left.state = 1;
-  fsm_cntr.state = 2;
+
+  // ESCOLHA DO MODO
+  // 0 = com control; 1 = direita; 2 = esquerda
+  int dir=1;
+  switch (dir){
+    case 0:
+      fsm_right.state = 0;
+      fsm_left.state = 0;
+      fsm_cntr.state = 0;
+      break;
+    case 1: 
+      fsm_right.state = 1;
+      fsm_left.state = 0;
+      fsm_cntr.state = 1; 
+      break;
+    case 2:
+      fsm_right.state = 0;
+      fsm_left.state = 1;
+      fsm_cntr.state = 2;
+      break;
+  }
+  
 
   attachInterrupt(digitalPinToInterrupt(SONAR_FRONT_PIN_echo), Sonar_receiveecho_front, CHANGE);
   attachInterrupt(digitalPinToInterrupt(SONAR_RIGHT_PIN_echo), Sonar_receiveecho_right, CHANGE);
@@ -573,14 +598,14 @@ void loop()
     Serial.print(fsm_right.state);
     Serial.print("| fsm_left: ");
     Serial.print(fsm_left.state);
-*/
+
     Serial.print(" | dist_right: ");
     Serial.print(distance_cm_right);
     Serial.print("| dist_front: ");
     Serial.print(distance_cm_front);
     Serial.print("| dist_left: ");
     Serial.print(distance_cm_left);
-
+*/
     //-----------------FSM RIGHT-------------------//
     if (fsm_cntr.state != 1){
       fsm_right.new_state = 0;
@@ -667,7 +692,7 @@ void loop()
     }
     else if (fsm_left.state == 2 || fsm_left.state == 5){
       int linear = follow_front();
-      turn_right(0.38 * linear);
+      turn_right(0.38 * linear); // 0.38
     }
     else if (fsm_left.state == 3)  
       move(0, MAX_BACK_SPEED);
@@ -680,7 +705,7 @@ void loop()
 
 /*
      //-----------------FSM CONTROL-------------------//
-    if (fsm_cntr.state==0 && ((distance_cm_right<50 && distance_cm_right>0)
+    if (fsm_cntr.state==0 && ((distance_cm_right<50 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
                           || (distance_cm_front<30 && distance_cm_left>50))){
       DIRECTION=RIGHT;
       fsm_cntr.new_state=1;
@@ -698,7 +723,7 @@ void loop()
       fsm_cntr.new_state=2;
 
       if (distance_cm_right > (DESIRED_DIST + MARGEM) 
-        && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)){
+        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){
           fsm_left.new_state = 2;
       }
       else fsm_left.new_state = 1;
@@ -724,7 +749,7 @@ void loop()
       fsm_cntr.new_state=2;
 
       if (distance_cm_right > (DESIRED_DIST + MARGEM) 
-        && distance_cm_front < (DESIRED_DIST_FRONT_L + MARGEM_FRONT_init)){
+        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){
           fsm_left.new_state = 2;
       }
       else fsm_left.new_state = 1;
