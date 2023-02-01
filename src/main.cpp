@@ -279,14 +279,14 @@ void move(int rotation_speed, int linear_speed)
   else if (linear_speed < 0 && speed_l < MAX_BACK_SPEED)
     speed_l = MAX_BACK_SPEED;
 
-  /*
+  
   Serial.print("\nSpeed_Linear: ");
   Serial.print(linear_speed);
   Serial.print("| Speed_R: ");
   Serial.print(speed_r);
   Serial.print("| Speed_L: ");
   Serial.print(speed_l);
-  */
+  
 
   set_motor(speed_r, speed_l);
 }
@@ -335,8 +335,8 @@ int integrate_front, integrate_right, integrate_left;
 
 int follow_right()
 {
-  float Ke_p = 1.1, Ki_p = 0.000, Kd_p = 0;
-  float Ke_n = 4.5, Ki_n = 0.000, Kd_n = 0;
+  float Ke_p = 0.8, Ki_p = 0.000, Kd_p = 0;
+  float Ke_n = 5, Ki_n = 0.000, Kd_n = 10;
   int dist = minimo_right();
   int error_right = dist - DESIRED_DIST;
   integrate_right = integrate_right + error_right;
@@ -372,8 +372,7 @@ int follow_right()
   return -rotation;
 }
 
-int follow_front()
-{
+int follow_front(){
   float Ke = 7, Ki = 0, Kd = 0;
   int error_front = distance_cm_front - DESIRED_DIST_FRONT;
   integrate_front = integrate_front + error_front;
@@ -567,14 +566,14 @@ void loop()
     set_state(fsm_triggerSonar_Right, fsm_triggerSonar_Right.new_state);
     set_state(fsm_triggerSonar_Left, fsm_triggerSonar_Left.new_state);
 
-
-    Serial.print("\nfsm_cntr: ");
+/*
+    Serial.print("| fsm_cntr: ");
     Serial.print(fsm_cntr.state);
     Serial.print("| fsm_right: ");
     Serial.print(fsm_right.state);
     Serial.print("| fsm_left: ");
     Serial.print(fsm_left.state);
-
+*/
     Serial.print(" | dist_right: ");
     Serial.print(distance_cm_right);
     Serial.print("| dist_front: ");
@@ -608,7 +607,7 @@ void loop()
     else if (fsm_right.state == 3 && distance_cm_left > (DESIRED_DIST + MARGEM)){ // left desimpedido
       fsm_right.new_state = 2;
     }
-    else if (fsm_right.state == 4 && distance_cm_right < (DESIRED_DIST + MARGEM)){ // right impedido
+    else if (fsm_right.state == 4 && distance_cm_right < (DESIRED_DIST + 3*MARGEM)){ // right impedido
       fsm_right.new_state = 1;
     }
     set_state(fsm_right, fsm_right.new_state);
@@ -626,36 +625,36 @@ void loop()
       move(0, MAX_BACK_SPEED);
     else if (fsm_right.state == 4){
       int linear = follow_front();
-      turn_right(0.32 * linear);
+      turn_right(0.2 * linear);
     }
 
     //-----------------FSM LEFT-------------------//
     if (fsm_cntr.state!=2){
       fsm_left.new_state=0;
     }
-    else if(fsm_left.state==1 && (distance_cm_right>(DESIRED_DIST+MARGEM)      
-                              && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init))){  
+    else if(fsm_left.state==1 && (distance_cm_right > (DESIRED_DIST+MARGEM)      
+                              && distance_cm_front < (DESIRED_DIST_FRONT+MARGEM_FRONT_init))){  
       fsm_left.new_state=2;
     }
-    else if(fsm_left.state==1 && ((distance_cm_right<(DESIRED_DIST+MARGEM)      
-                              && distance_cm_front<(DESIRED_DIST_FRONT+MARGEM_FRONT_init)) 
-                              || (distance_cm_right<(MARGEM)))){
+    else if(fsm_left.state==1 && ((distance_cm_right < (DESIRED_DIST+MARGEM)      
+                              && distance_cm_front < (DESIRED_DIST_FRONT+MARGEM_FRONT_init)) 
+                              || (distance_cm_right < (MARGEM)))){
       fsm_left.new_state=3;
     }
-    else if(fsm_left.state==1 && (distance_cm_left>4*(DESIRED_DIST+MARGEM))){      
+    else if(fsm_left.state==1 && (distance_cm_left > 4 * (DESIRED_DIST+MARGEM))){      
       fsm_left.new_state=4;
     }
-    else if(fsm_left.state==2 && distance_cm_front>(DESIRED_DIST_FRONT+MARGEM_FRONT_fim)){  
+    else if(fsm_left.state==2 && distance_cm_front > (DESIRED_DIST_FRONT+MARGEM_FRONT_fim)){  
       fsm_left.new_state=1;
     }
-    else if(fsm_left.state==2 && (distance_cm_right<(MARGEM)    
-                              || distance_cm_front<(MARGEM))){   
+    else if(fsm_left.state==2 && (distance_cm_right < (MARGEM)    
+                              || distance_cm_front < (MARGEM))){   
       fsm_left.new_state=3;
     }
-    else if(fsm_left.state==3 && distance_cm_right>(DESIRED_DIST+MARGEM)){   
+    else if(fsm_left.state==3 && distance_cm_right > (DESIRED_DIST+MARGEM)){   
       fsm_left.new_state=2;
     }
-    else if(fsm_left.state==4 && distance_cm_left<(DESIRED_DIST+3*MARGEM)){
+    else if(fsm_left.state==4 && distance_cm_left < (DESIRED_DIST+3*MARGEM)){
       fsm_left.new_state=1;
     }
 
