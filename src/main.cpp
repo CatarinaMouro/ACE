@@ -26,7 +26,7 @@
 #define DESIRED_DIST_FRONT 5
 #define MARGEM 5
 #define MARGEM_FRONT_init 15
-#define MARGEM_FRONT_fim 4 * MARGEM_FRONT_init
+#define MARGEM_FRONT_fim 50
 #define DIST_MAX 500
 #define DIST_MIN 10
 #define VAL_MAX 50
@@ -483,7 +483,7 @@ void setup()
 
   // ESCOLHA DO MODO
   // 0 = com control; 1 = direita; 2 = esquerda
-  dir=1;
+  dir=2;
   switch (dir){
     case 0:
       fsm_right.state = 0;
@@ -708,8 +708,8 @@ void loop()
 
      //-----------------FSM CONTROL-------------------//
     if (fsm_cntr.state==0 && !dir
-                          && ((distance_cm_right<50 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
-                          || (distance_cm_front<30 && distance_cm_left>50))){
+                          && ((distance_cm_right<30 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
+                          || (distance_cm_front<30 && distance_cm_left>30))){
       DIRECTION=RIGHT;
       fsm_cntr.new_state=1;
       
@@ -721,7 +721,7 @@ void loop()
       set_state(fsm_right, fsm_right.new_state);
 
     }
-    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<50 && distance_cm_left>0)){
+    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<30 && distance_cm_left>0)){
       DIRECTION=LEFT;
       fsm_cntr.new_state=2;
 
@@ -738,7 +738,7 @@ void loop()
     else if (fsm_cntr.state==2 && !dir && fsm_left.state==4 && fsm_left.tis>TIMEOUT){
       fsm_cntr.new_state=0;
     }
-    else if(fsm_cntr.state==3 && DIRECTION==RIGHT && (distance_cm_right<50 || distance_cm_front<30)){
+    else if(fsm_cntr.state==3 && DIRECTION==RIGHT && (distance_cm_right<30 || distance_cm_front<30)){
       fsm_cntr.new_state=1;
       
       if (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
@@ -748,7 +748,7 @@ void loop()
       else fsm_right.new_state = 1;
       set_state(fsm_right, fsm_right.new_state);
     }
-    else if(fsm_cntr.state==3 && DIRECTION==LEFT && (distance_cm_left<50 || distance_cm_front<30)){
+    else if(fsm_cntr.state==3 && DIRECTION==LEFT && (distance_cm_left<30 || distance_cm_front<30)){
       fsm_cntr.new_state=2;
 
       if (distance_cm_right > (DESIRED_DIST + MARGEM) 
