@@ -483,7 +483,7 @@ void setup()
 
   // ESCOLHA DO MODO
   // 0 = com control; 1 = direita; 2 = esquerda
-  dir=2;
+  dir=0;
   switch (dir){
     case 0:
       fsm_right.state = 0;
@@ -708,8 +708,8 @@ void loop()
 
      //-----------------FSM CONTROL-------------------//
     if (fsm_cntr.state==0 && !dir
-                          && ((distance_cm_right<30 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
-                          || (distance_cm_front<30 && distance_cm_left>30))){
+                          && ((distance_cm_right<35 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
+                          || (distance_cm_front<20 && distance_cm_left>50))){
       DIRECTION=RIGHT;
       fsm_cntr.new_state=1;
       
@@ -721,7 +721,7 @@ void loop()
       set_state(fsm_right, fsm_right.new_state);
 
     }
-    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<30 && distance_cm_left>0)){
+    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<35 && distance_cm_left>0)){
       DIRECTION=LEFT;
       fsm_cntr.new_state=2;
 
@@ -738,35 +738,10 @@ void loop()
     else if (fsm_cntr.state==2 && !dir && fsm_left.state==4 && fsm_left.tis>TIMEOUT){
       fsm_cntr.new_state=0;
     }
-    else if(fsm_cntr.state==3 && DIRECTION==RIGHT && (distance_cm_right<30 || distance_cm_front<30)){
-      fsm_cntr.new_state=1;
-      
-      if (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
-        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){ // front impedido
-        fsm_right.new_state = 2;
-      }
-      else fsm_right.new_state = 1;
-      set_state(fsm_right, fsm_right.new_state);
-    }
-    else if(fsm_cntr.state==3 && DIRECTION==LEFT && (distance_cm_left<30 || distance_cm_front<30)){
-      fsm_cntr.new_state=2;
-
-      if (distance_cm_right > (DESIRED_DIST + MARGEM) 
-        && distance_cm_front < (DESIRED_DIST_FRONT + MARGEM_FRONT_init)){
-          fsm_left.new_state = 2;
-      }
-      else fsm_left.new_state = 1;
-      set_state(fsm_left, fsm_left.new_state);
-    }
     set_state(fsm_cntr, fsm_cntr.new_state);
-
+    
     if(fsm_cntr.state==0 || fsm_cntr.state==3) move(0, VAL_MAX_LINEAR);
 
-
-    // int rotation=follow_right();
-    // int rotation=follow_left();
-    // int linear=follow_front();
-    // move(rotation, linear);
   }
 
 }
