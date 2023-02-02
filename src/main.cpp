@@ -43,8 +43,6 @@
 unsigned long interval, last_cycle, intv_motors, init_motors;
 unsigned long loop_micros;
 
-int DIRECTION;
-
 typedef struct
 {
   int state, new_state;
@@ -469,7 +467,6 @@ void setup()
 
   interval = 40;
   intv_motors = 100;
-  DIRECTION = 0;
   count_wheel_R = 0;
   count_wheel_L = 0;
   dir_R = 0;
@@ -708,9 +705,8 @@ void loop()
 
      //-----------------FSM CONTROL-------------------//
     if (fsm_cntr.state==0 && !dir
-                          && ((distance_cm_right<35 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
-                          || (distance_cm_front<20 && distance_cm_left>50))){
-      DIRECTION=RIGHT;
+                          && ((distance_cm_right<30 && distance_cm_right>0 && distance_cm_right<distance_cm_left)
+                          || (distance_cm_front<18 && distance_cm_left>40))){
       fsm_cntr.new_state=1;
       
       if (distance_cm_left > (DESIRED_DIST + MARGEM) // left desimpedido
@@ -721,8 +717,7 @@ void loop()
       set_state(fsm_right, fsm_right.new_state);
 
     }
-    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<35 && distance_cm_left>0)){
-      DIRECTION=LEFT;
+    else if (fsm_cntr.state==0 && !dir && (distance_cm_left<40 && distance_cm_left>0)){
       fsm_cntr.new_state=2;
 
       if (distance_cm_right > (DESIRED_DIST + MARGEM) 
